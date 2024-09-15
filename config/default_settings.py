@@ -1,6 +1,9 @@
 
 
 #* SERVER DATA
+from dataclasses import dataclass
+
+
 SERVER_IP = '192.168.0.106'
 SERVER_PORT = 8081
 
@@ -24,3 +27,18 @@ BUTTON_MAP = {
 
 #* OVERALL
 LANGUAGE = 'ru'
+# Путь к файлу пользовательских настроек
+USER_SETTINGS_FILE = 'user_settings.yaml'
+
+
+DEFAULT_SETTINGS_DICT = {
+    'SERVER_IP': SERVER_IP,
+    'SERVER_PORT': SERVER_PORT,
+    'INTERVAL_SEND_TIMING': INTERVAL_SEND_TIMING,
+    'BUTTON_MAP': BUTTON_MAP,
+    'LANGUAGE': LANGUAGE
+}
+
+@dataclass
+class DynamicTempSettings:
+    SERVER_RUNNING: bool = False
