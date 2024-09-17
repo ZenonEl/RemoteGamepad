@@ -5,6 +5,8 @@ from pages.settings import ResetAndApplySettings, SettingsPage
 
 import flet as ft
 
+from pages.utils import page_resized
+
 class PageManager:
     def __init__(self, page: ft.Page):
         self.page = page
@@ -128,6 +130,7 @@ class PageManager:
         )
 
         self.current_content = loading_content
+        self.page.on_resized = lambda e: page_resized(e, self)
         self.page.add(self.current_content)
 
 

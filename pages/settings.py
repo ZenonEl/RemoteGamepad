@@ -2,6 +2,8 @@ from config.default_settings import INTERVAL_SEND_TIMING, SERVER_IP, SERVER_PORT
 from config.settings import get_setting, set_setting
 from typing import TYPE_CHECKING
 
+from pages.utils import page_resized
+
 if TYPE_CHECKING:
     from pages.page_manager import PageManager
 
@@ -63,7 +65,7 @@ class SettingsPage:
         )
 
         # Настройки интерфейса
-        dynamic_layout_text = ft.Text("Динамический адаптивный дизайн:")
+        dynamic_layout_text = ft.Text("Сворачивание в трей:")
         dynamic_layout_switch = ft.Switch(value=False)
 
         apply_button = ft.ElevatedButton(text="Применить настройки", on_click=self.apply_settings)
@@ -91,15 +93,20 @@ class SettingsPage:
                 back_button
             ],
             alignment=ft.MainAxisAlignment.START,
-            spacing=10
+            spacing=10,
+            width=self.page.width,
+            height=self.page.height,
+            expand=True,
+            scroll=ft.ScrollMode.AUTO
         )
 
+        self.page.on_resized = lambda e: page_resized(e, self)
         return settings_content
 
 
 class ResetAndApplySettings:
     @staticmethod
-    def get_apply_alert(self) -> ft.AlertDialog:
+    def get_apply_alert(self: 'PageManager') -> ft.AlertDialog:
         dlg_modal = ft.AlertDialog(
             title=ft.Text("Подтверждение"),
             content=ft.Text("Вы уверены, что хотите применить настройки?"),
@@ -112,7 +119,7 @@ class ResetAndApplySettings:
         return dlg_modal
 
     @staticmethod
-    def process_apply_settings(self) -> ft.AlertDialog:
+    def process_apply_settings(self: 'PageManager') -> ft.AlertDialog:
             server_ip = self.page.controls[0].controls[2].value  # IP адрес сервера
             server_port = self.page.controls[0].controls[4].value  # Порт сервера
             send_interval = self.page.controls[0].controls[6].value  # Интервал отправки

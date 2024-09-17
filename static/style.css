@@ -55,7 +55,7 @@ input {
 
 .nav-buttons {
     display: flex;
-    gap: 15rem;
+    gap: 15vw;
 }
 
 .btn-floating {
@@ -105,7 +105,7 @@ input, button {
     }
 
     .nav-buttons {
-        gap: 15rem;
+        gap: 15vw;
     }
 }
 
