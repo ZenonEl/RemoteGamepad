@@ -1,2 +1,4 @@
 flet==0.22.*
 flask==3.0.2
+pyxinput==0.9.0
+loguru==0.7.2

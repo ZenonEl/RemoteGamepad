@@ -5,7 +5,7 @@ from pages.page_manager import init_gui
 
 
 def main(page: ft.Page):
-    page.title = "Joystick Controller"
+    page.title = "RemoteGamepad"
 
     init_gui(page)
 
