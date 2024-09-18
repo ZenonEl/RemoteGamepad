@@ -43,9 +43,9 @@ class SettingsPage:
             value=str(server_port)
         )
 
-        send_interval_text = ft.Text("Интервал отправки (мс):")
+        send_interval_text = ft.Text("Интервал отправки данных от клиента на сервер (мс):")
         send_interval_field = ft.TextField(
-            label="Интервал отправки",
+            label="Интервал отправки данных от клиента на сервер",
             border=ft.InputBorder.UNDERLINE,
             filled=True,
             hint_text=f"Введите интервал отправки в миллисекундах, пример: {INTERVAL_SEND_TIMING}",

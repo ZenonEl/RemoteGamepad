@@ -16,6 +16,7 @@ body.light-theme {
 .nav-wrapper {
     background-color: #1e88e5;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    height: max-content;
 }
 
 #joystick-data {
@@ -55,7 +56,7 @@ input {
 
 .nav-buttons {
     display: flex;
-    gap: 15vw;
+    gap: 1vw;
 }
 
 .btn-floating {
@@ -80,8 +81,15 @@ html, body {
 }
 
 .container {
+    display: flex;
     padding-top: 1vh;
     padding-bottom: 5vh;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1 {
+    font-size: 4vh;
 }
 
 input, button {
@@ -89,12 +97,14 @@ input, button {
 }
 
 .brand-logo {
+    position: unset !important;
     font-size: 1.5rem;
     padding-left: 10vw;
 }
 
 @media screen and (max-width: 600px) {
     .brand-logo {
+        position: unset !important;
         font-size: 1.5rem;
         padding-left: 10vw;
     }
@@ -105,7 +115,7 @@ input, button {
     }
 
     .nav-buttons {
-        gap: 15vw;
+        gap: 1vw;
     }
 }
 
@@ -116,6 +126,7 @@ input, button {
     }
 
     .brand-logo {
+        position: unset !important;
         font-size: 2rem;
         padding-left: 10vw;
     }
