@@ -2,25 +2,27 @@ from dataclasses import dataclass
 
 
 # * SERVER DATA
-SERVER_IP = "192.168.0.106"
-SERVER_PORT = 8081
+SERVER_IP = "0.0.0.0"
+SERVER_PORT = 5001
 
 INTERVAL_SEND_TIMING = 50
 
 # Сопоставление номеров кнопок с именами кнопок
+from evdev import ecodes as e
+
 BUTTON_MAP = {
-    0: "BtnA",
-    1: "BtnB",
-    2: "BtnX",
-    3: "BtnY",
-    4: "BtnBack",
-    5: "BtnStart",
-    6: "BtnThumbL",
-    7: "BtnThumbR",
-    8: "BtnShoulderL",
-    9: "BtnShoulderR",
-    15: "TriggerL",
-    16: "TriggerR",
+    "BtnA": e.BTN_SOUTH,
+    "BtnB": e.BTN_EAST,
+    "BtnX": e.BTN_NORTH,
+    "BtnY": e.BTN_WEST,
+    "BtnBack": e.BTN_SELECT,
+    "BtnStart": e.BTN_START,
+    "BtnThumbL": e.BTN_THUMBL,
+    "BtnThumbR": e.BTN_THUMBR,
+    "BtnShoulderL": e.BTN_TL,
+    "BtnShoulderR": e.BTN_TR,
+    "TriggerL": e.ABS_Z,
+    "TriggerR": e.ABS_RZ
 }
 
 # * OVERALL
