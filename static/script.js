@@ -41,11 +41,11 @@ function getGamepadData() {
             value: button.value,
             index: index
         }));
-
         return { type: "axis", axes: axes, buttons: buttons };
     }
     return null;
 }
+
 
 function sendGamepadData(data) {
     fetch('/gamepad_data', {

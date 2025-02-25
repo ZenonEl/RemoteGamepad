@@ -36,7 +36,12 @@ class VirtualJoystick:
                 (e.ABS_HAT0Y, AbsInfo(0, -1, 1, 0, 0, 0)),
             ]
         }
-        
+
+        self.dpad_state = {
+            'x': 0,
+            'y': 0
+        }
+
         self.device = UInput(
             self.caps,
             name='Microsoft X-Box 360 pad',
@@ -76,34 +81,38 @@ class VirtualJoystick:
             btn_code = BUTTON_MAP.get(name)
             if btn_code is not None:
                 self.device.write(e.EV_KEY, btn_code, 1 if value else 0)
-                self.device.syn()
-
-    def _handle_dpad(self, value, is_pressed):
-        print(f"Value: {value}, Is pressed: {is_pressed}")  # Отладочный вывод
-        import time
-        if is_pressed:
-            if value == self.DPAD_LEFT:
-                print("D-pad left pressed")  # Отладка
-                self.device.write(e.EV_ABS, e.ABS_HAT0X, -1)
-                time.sleep(0.3)
-            elif value == self.DPAD_RIGHT:
-                print("D-pad right pressed")  # Отладка
-                self.device.write(e.EV_ABS, e.ABS_HAT0X, 1)
-            elif value == self.DPAD_UP:
-                print("D-pad up pressed")  # Отладка
-                self.device.write(e.EV_ABS, e.ABS_HAT0Y, -1)
-                time.sleep(0.3)
-            elif value == self.DPAD_DOWN:
-                print("D-pad down pressed")  # Отладка
-                self.device.write(e.EV_ABS, e.ABS_HAT0Y, 1)
-        else:
-            if value == self.DPAD_LEFT or value == self.DPAD_RIGHT:
-                print("D-pad X-axis released")  # Отладка
-                self.device.write(e.EV_ABS, e.ABS_HAT0X, 0)
-            elif value == self.DPAD_UP or value == self.DPAD_DOWN:
-                print("D-pad Y-axis released")  # Отладка
-                self.device.write(e.EV_ABS, e.ABS_HAT0Y, 0)
         self.device.syn()
+
+    # def _handle_dpad(self, value, is_pressed):
+    #     # Определяем изменение по осям X и Y
+    #     x_changed = False
+    #     y_changed = False
+    #     print(y_changed, x_changed)
+    #     if value in [self.DPAD_LEFT, self.DPAD_RIGHT]:
+    #         if is_pressed:
+    #             self.dpad_state['x'] = 222 if value == self.DPAD_LEFT else 1
+    #             x_changed = True
+    #         else:
+    #             if self.dpad_state['x'] != 0 and not is_pressed:
+    #                 self.dpad_state['x'] = 0
+    #                 x_changed = True
+    #     elif value in [self.DPAD_UP, self.DPAD_DOWN]:
+    #         if is_pressed:
+    #             self.dpad_state['y'] = 1 if value == self.DPAD_UP else 1
+    #             y_changed = True
+    #         else:
+    #             if self.dpad_state['y'] != 0 and not is_pressed:
+    #                 self.dpad_state['y'] = 0
+    #                 y_changed = True
+
+    #     # Отправляем обновления только если состояние изменилось
+    #     if x_changed:
+    #         self.device.write(e.EV_ABS, e.ABS_HAT0X, self.dpad_state['x'])
+    #     if y_changed:
+    #         self.device.write(e.EV_ABS, e.ABS_HAT0Y, self.dpad_state['y'])
+
+    #     # Синхронизация изменений
+    #     self.device.syn()
 
 
 # Инициализация контроллера
@@ -166,26 +175,49 @@ def check_server_status(page: ft.Page):
 
 def process_btn_data(data):
     if "buttons" in data:
+        # Сначала обрабатываем все кнопки, затем обновляем D-pad
         for btn in data["buttons"]:
-            set_btn_state(btn["name"], btn["pressed"])
+            if not btn["name"].startswith("Dpad"):
+                set_btn_state(btn["name"], btn["pressed"])
+
+        button_dict = {button['name']: button for button in data['buttons']}
+
+        # Извлекаем значения D-pad
+        dpad_up_value = button_dict.get('Dpad_Up', {}).get('value', 0)
+        dpad_down_value = button_dict.get('Dpad_Down', {}).get('value', 0)
+        dpad_left_value = button_dict.get('Dpad_Left', {}).get('value', 0)
+        dpad_right_value = button_dict.get('Dpad_Right', {}).get('value', 0)
+
+        # Вычисляем dpad_x и dpad_y
+        dpad_x = dpad_right_value - dpad_left_value
+        dpad_y = dpad_up_value - dpad_down_value
+
+        # Выводим результаты
+        print(f"dpad_x: {dpad_x}, dpad_y: {dpad_y}")
+
+        # После обработки всех кнопок, синхронизируем D-pad
+        controller.device.write(e.EV_ABS, e.ABS_HAT0X, dpad_x)
+        controller.device.write(e.EV_ABS, e.ABS_HAT0Y, dpad_y * -1)
+        controller.device.syn()
 
 def set_btn_state(button_name, is_pressed):
-    if not button_name:
-        return
-    if button_name.startswith("Dpad"):
-        # Обработка D-Pad
-        dpad_mapping = {
-        "Dpad_Up": controller.DPAD_UP,      # 1
-        "Dpad_Down": controller.DPAD_DOWN,  # 2
-        "Dpad_Left": controller.DPAD_LEFT,  # 3
-        "Dpad_Right": controller.DPAD_RIGHT # 4
-    }
-
-        # Используем DPAD_OFF (0) если кнопка отпущена
-        dpad_value = dpad_mapping.get(button_name, controller.DPAD_OFF)
-        controller.set_value("Dpad", dpad_value, is_pressed)
-    else:
-        # Используем прямое сопоставление из BUTTON_MAP
+    # if button_name.startswith("Dpad"):
+    #     dpad_mapping = {
+    #         "Dpad_Up": (0, -1),
+    #         "Dpad_Down": (0, 1),
+    #         "Dpad_Left": (-1, 0),
+    #         "Dpad_Right": (1, 0)
+    #     }
+    #     x, y = dpad_mapping.get(button_name, (0, 0))
+    #     # Обновляем только соответствующую ось
+    #     if x != 0:
+    #         controller.dpad_state['x'] = x if is_pressed else 0
+    #     if y != 0:
+    #         controller.dpad_state['y'] = y if is_pressed else 0
+        
+    #     # Важно: не вызываем device.syn() здесь, чтобы избежать частичных обновлений
+    # else:
+    #     # Обработка других кнопок
         if button_name in BUTTON_MAP:
             controller.set_value(button_name, is_pressed)
 
