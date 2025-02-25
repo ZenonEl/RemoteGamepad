@@ -27,6 +27,16 @@ body.light-theme {
     box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
 }
 
+.light-theme {
+    --background: #fafafa;
+    --text: #424242;
+    --card-bg: #e0e0e0;
+}
+
+.theme-transition * {
+    transition: background 0.3s, color 0.3s;
+}
+
 body.light-theme #joystick-data {
     background-color: #e0e0e0;
     color: black;
