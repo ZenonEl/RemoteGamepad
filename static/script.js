@@ -46,7 +46,6 @@ function getGamepadData() {
     return null;
 }
 
-
 function sendGamepadData(data) {
     fetch('/gamepad_data', {
         method: 'POST',
@@ -59,7 +58,7 @@ function sendGamepadData(data) {
     }).then(result => {
         console.log('Response from server:', result);
         // После отправки данных снова проверяем состояние
-        updateJoystickData(data)
+        updateJoystickData(data);
         checkForChanges();
     }).catch(error => {
         console.error('Error:', error);
@@ -86,37 +85,6 @@ function update() {
     requestAnimationFrame(update);
 }
 
-// Переключение темы
-const themeToggle = document.getElementById('theme-toggle');
-const body = document.body;
-
-themeToggle.addEventListener('click', () => {
-    body.classList.toggle('light-theme');
-    body.classList.toggle('dark-theme');
-});
-
-// Сохранение ника пользователя
-const nicknameInput = document.getElementById('nickname-input');
-const nicknameDisplay = document.getElementById('nickname-display');
-const saveNicknameButton = document.getElementById('save-nickname');
-
-saveNicknameButton.addEventListener('click', () => {
-    const nickname = nicknameInput.value.trim();
-    if (nickname) {
-        localStorage.setItem('nickname', nickname);  // Сохраняем ник в локальное хранилище
-        nicknameDisplay.textContent = nickname;
-        M.toast({html: 'Ник сохранён!'});
-    }
-});
-
-// Загрузка ника из localStorage при загрузке страницы
-window.addEventListener('load', () => {
-    const savedNickname = localStorage.getItem('nickname');
-    if (savedNickname) {
-        nicknameDisplay.textContent = savedNickname;
-    }
-});
-
 // Обновление данных джойстика на странице
 function updateJoystickData(data) {
     document.getElementById('left-stick-x').textContent = data.axes.left_stick.x.toFixed(2);
@@ -134,7 +102,86 @@ function updateJoystickData(data) {
     });
 }
 
+// ================== Система тем ==================
+const themeToggle = document.getElementById('theme-toggle');
+const body = document.body;
 
-// Запускаем цикл обновления
-requestAnimationFrame(update);
+function saveTheme() {
+    localStorage.setItem('theme', body.classList.contains('light-theme') ? 'light' : 'dark');
+}
 
+themeToggle.addEventListener('click', () => {
+    body.classList.toggle('light-theme');
+    body.classList.toggle('dark-theme');
+    saveTheme();
+});
+
+// ================== Работа с ником ==================
+const nicknameInput = document.getElementById('nickname-input');
+const nicknameDisplay = document.getElementById('nickname-display');
+const saveNicknameButton = document.getElementById('save-nickname');
+
+function handleNicknameSave() {
+    const nickname = nicknameInput.value.trim();
+    if (!nickname) return;
+    
+    localStorage.setItem('nickname', nickname);
+    nicknameDisplay.textContent = nickname;
+    M.toast({html: 'Ник сохранён!'});
+}
+
+saveNicknameButton.addEventListener('click', handleNicknameSave);
+
+// ================== Инициализация при загрузке ==================
+window.addEventListener('load', () => {
+    // Загрузка темы
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') body.classList.add('light-theme');
+    
+    // Загрузка ника
+    const savedNickname = localStorage.getItem('nickname');
+    if (savedNickname) nicknameDisplay.textContent = savedNickname;
+    
+    // Загрузка языка
+    const lang = localStorage.getItem('language') || 'ru';
+    if (lang) loadTranslations(lang);
+    
+    // Запуск геймпада
+    requestAnimationFrame(update);
+});
+
+// ================== Система переводов ==================
+async function loadTranslations(lang) {
+    try {
+        const response = await fetch(`/lang/${lang}.json`);
+        const translations = await response.json();
+        
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.dataset.i18n;
+            if (translations[key]) el.textContent = translations[key];
+        });
+        
+        localStorage.setItem('language', lang);
+    } catch (error) {
+        console.error('Ошибка загрузки переводов:', error);
+    }
+}
+
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    const main = document.getElementById('translatable-content');
+    main.classList.add('fade-out');
+});
+
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    const main = document.getElementById('translatable-content');
+    main.classList.remove('fade-out');
+    main.classList.add('fade-in');
+
+    setTimeout(() => main.classList.remove('fade-in'), 500);
+});
+
+// ================== Всплывающее меню ==================
+document.addEventListener('DOMContentLoaded', () => {
+    const fab = document.querySelector('.fixed-action-btn');
+    M.FloatingActionButton.init(fab, {});
+});

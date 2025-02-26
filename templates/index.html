@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru" data-htmx="true">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,75 +8,135 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://unpkg.com/htmx.org"></script>
 </head>
 <body class="dark-theme theme-transition">
-    <nav class="nav-wrapper z-depth-3">
-        <div class="container">
+    <!-- Навигация -->
+    <nav class="nav-wrapper z-depth-3" aria-label="Основное меню">
+        <section class="container">
             <h1>RemoteGamepad</h1>
             <div class="nav-content">
-                <div class="nav-buttons">
-                    <a href="#" id="theme-toggle" class="btn-floating btn-small waves-effect waves-light z-depth-2">
-                        <i class="material-icons">brightness_6</i>
-                    </a>
-                    <a class="dropdown-trigger btn-floating btn-small waves-effect waves-light z-depth-2" href="#" data-target="language-dropdown">
-                        <i class="material-icons">language</i>
-                    </a>
-                </div>
+                <menu class="nav-buttons">
+                    <li>
+                        <button id="theme-toggle" class="btn-floating btn-small waves-effect waves-light z-depth-2" 
+                                aria-label="Переключить тему">
+                            <i class="material-icons">brightness_6</i>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="dropdown-trigger btn-floating btn-small waves-effect waves-light z-depth-2" 
+                                data-target="language-dropdown" aria-label="Выбор языка">
+                            <i class="material-icons">language</i>
+                        </button>
+                    </li>
+                    <li>
+                        <menu class="fixed-action-btn">
+                            <li>
+                                <button class="btn-floating btn-large red" aria-label="Дополнительное меню">
+                                    <i class="large material-icons">menu</i>
+                                </button>
+                            </li>
+                            <ul>
+                                <li><a href="#docs-modal" class="btn-floating green modal-trigger"><i class="material-icons">help</i></a></li>
+                                <li><button id="test-connection" class="btn-floating blue"><i class="material-icons">wifi</i></button></li>
+                            </ul>
+                        </menu>
+                    </li>
+                </menu>
             </div>
-        </div>
+        </section>
     </nav>
+
+    <!-- Выбор языка -->
     <ul id="language-dropdown" class="dropdown-content">
-        <li><a href="#!">Русский</a></li>
-        <li><a href="#!">English</a></li>
+        <li><a hx-get="/lang/ru" hx-target="main" hx-swap="innerHTML">Русский</a></li>
+        <li><a hx-get="/lang/en" hx-target="main" hx-swap="innerHTML">English</a></li>
     </ul>
 
-    <div class="container content-container">
-        <h5 id="nickname-title" class="flow-text">Ваш ник: <span id="nickname-display">Guest</span></h5>
-        <div class="input-field">
-            <input id="nickname-input" type="text" placeholder="Измените ник">
-            <button id="save-nickname" class="btn waves-effect waves-light z-depth-2">Сохранить ник</button>
-        </div>
+    <!-- Основной контент -->
+    <main id="translatable-content" class="container content-container"
+            hx-swap="innerHTML swap:0.5s settle:0.5s">
+        <article>
+            <h5 id="nickname-title" class="flow-text" data-i18n="nickname_title">Ваш ник: 
+                <output id="nickname-display">Guest</output>
+            </h5>
+            <form @submit.prevent="saveNickname">
+                <div class="input-field">
+                    <input id="nickname-input" type="text" placeholder="Измените ник" 
+                           data-i18n-placeholder="change_nickname">
+                    <button id="save-nickname" class="btn waves-effect waves-light z-depth-2" 
+                            type="submit" data-i18n="save_nickname">
+                        Сохранить ник
+                    </button>
+                </div>
+            </form>
 
-        <div id="joystick-data" class="card-panel z-depth-3">
-            <h5 class="flow-text">Данные джойстика</h5>
-            <div id="axes-data">
-                <p>Левый стик: X: <span id="left-stick-x">0</span>, Y: <span id="left-stick-y">0</span></p>
-                <p>Правый стик: X: <span id="right-stick-x">0</span>, Y: <span id="right-stick-y">0</span></p>
-            </div>
-            <div id="buttons-data">
-                <h6 class="flow-text">Кнопки:</h6>
-                <ul id="buttons-list"></ul>
-            </div>
-        </div>
-    </div>
-    <footer class="page-footer">
-        <div class="container">
-            <div class="row">
-                <div class="col l6 s12">
-                    <h5 class="white-text">Проект RemoteGamepad</h5>
-                    <p class="grey-text text-lighten-4">Лицензия: GPL 3. Сделано с ❤️ в 2024-2025 году.</p>
+            <section id="joystick-data" class="card-panel z-depth-3" aria-labelledby="joystick-heading">
+                <h5 id="joystick-heading" class="flow-text" data-i18n="joystick_data">Данные джойстика</h5>
+                <div id="axes-data">
+                    <p data-i18n="left_stick">Левый стик: 
+                        X: <output id="left-stick-x">0</output>, 
+                        Y: <output id="left-stick-y">0</output>
+                    </p>
+                    <p data-i18n="right_stick">Правый стик: 
+                        X: <output id="right-stick-x">0</output>, 
+                        Y: <output id="right-stick-y">0</output>
+                    </p>
                 </div>
-                <div class="col l4 offset-l2 s12">
-                    <h5 class="white-text">Связаться</h5>
-                    <ul>
-                        <li><a class="grey-text text-lighten-3" href="https://github.com/ZenonEl/RemoteGamepad" target="_blank">GitHub проекта</a></li>
-                    </ul>
+                <div id="buttons-data" aria-labelledby="buttons-heading">
+                    <h6 id="buttons-heading" class="flow-text" data-i18n="buttons">Кнопки:</h6>
+                    <ul id="buttons-list"></ul>
                 </div>
-            </div>
-        </div>
-        <div class="footer-copyright">
+            </section>
+        </article>
+        <!-- Подвал -->
+        <footer class="page-footer" aria-label="Информация о проекте">
             <div class="container">
-                © 2024-2025 Твой ZenonEl
+                <div class="row">
+                    <section class="col l6 s12">
+                        <h5 class="white-text" data-i18n="project_title">Проект RemoteGamepad</h5>
+                        <p class="grey-text text-lighten-4" data-i18n="license_info">Лицензия: GPL 3. Сделано с ❤️ в 2024-2025 году.</p>
+                    </section>
+                    <section class="col l4 offset-l2 s12">
+                        <h5 class="white-text" data-i18n="contacts">Связаться</h5>
+                        <ul>
+                            <li><a class="grey-text text-lighten-3" href="https://github.com/ZenonEl/RemoteGamepad" 
+                                target="_blank" data-i18n="github">GitHub проекта</a></li>
+                            <li><a class="grey-text text-lighten-3" href="https://mastodon.ml/@ZenonEl" 
+                                target="_blank" data-i18n="mastodon">Я в Mastodon</a></li>
+                        </ul>
+                    </section>
+                </div>
             </div>
-        </div>
-    </footer>
+            <div class="footer-copyright">
+                <div class="container" data-i18n="copyright">
+                    © 2024-2025 Твой ZenonEl
+                </div>
+            </div>
+        </footer>
 
+        <!-- Модальное окно -->
+        <aside id="docs-modal" class="modal" role="dialog">
+            <div class="modal-content">
+                <h4 data-i18n="instructions">Инструкция</h4>
+                <p data-i18n="step1">1. Подключите ПК и телефон к одной сети...</p>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Скрипты -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const elems = document.querySelectorAll('.dropdown-trigger');
-            M.Dropdown.init(elems, { coverTrigger: false });
+            // Инициализация компонентов
+            M.AutoInit();
+            
+            // Обработка HTMX
+            document.body.addEventListener('htmx:afterSwap', function() {
+                M.AutoInit(); // Переинициализация после загрузки контента
+                loadLocalization(); // Загрузка локализации
+            });
         });
     </script>
 </body>
