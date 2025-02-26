@@ -1,0 +1,17 @@
+{
+    "nickname_title": "Ваш ник:",
+    "change_nickname": "Измените ник",
+    "save_nickname": "Сохранить ник",
+    "joystick_data": "Данные джойстика",
+    "left_stick": "Левый стик",
+    "right_stick": "Правый стик",
+    "buttons": "Кнопки",
+    "project_title": "Проект RemoteGamepad",
+    "license_info": "Лицензия: GPL 3. Сделано с ❤️ в 2024-2025 году.",
+    "contacts": "Связаться",
+    "github": "GitHub проекта",
+    "mastodon": "Я в Mastodon",
+    "copyright": "© 2024-2025 Твой ZenonEl",
+    "instructions": "Инструкция",
+    "step1": "1. Подключите ПК и телефон к одной сети..."
+}
