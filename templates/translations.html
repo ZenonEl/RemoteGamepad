@@ -1,0 +1,61 @@
+<!-- templates/translations.html -->
+<h5 id="nickname-title" class="flow-text" data-i18n="nickname_title">{{ translations.nickname_title }} 
+    <output id="nickname-display">Guest</output>
+</h5>
+
+<div class="input-field">
+    <input id="nickname-input" type="text" placeholder="{{ translations.change_nickname }}">
+    <button id="save-nickname" class="btn waves-effect waves-light z-depth-2" type="submit" data-i18n="save_nickname">
+        {{ translations.save_nickname }}
+    </button>
+</div>
+
+<section id="joystick-data" class="card-panel z-depth-3" aria-labelledby="joystick-heading">
+    <h5 id="joystick-heading" class="flow-text" data-i18n="joystick_data">{{ translations.joystick_data }}</h5>
+    <div id="axes-data">
+        <p data-i18n="left_stick">{{ translations.left_stick }}: 
+            X: <output id="left-stick-x">0</output>, 
+            Y: <output id="left-stick-y">0</output>
+        </p>
+        <p data-i18n="right_stick">{{ translations.right_stick }}: 
+            X: <output id="right-stick-x">0</output>, 
+            Y: <output id="right-stick-y">0</output>
+        </p>
+    </div>
+    <div id="buttons-data" aria-labelledby="buttons-heading">
+        <h6 id="buttons-heading" class="flow-text" data-i18n="buttons">{{ translations.buttons }}</h6>
+        <ul id="buttons-list"></ul>
+    </div>
+</section>
+
+<footer class="page-footer" aria-label="Информация о проекте">
+    <div class="container">
+        <div class="row">
+            <section class="col l6 s12">
+                <h5 class="white-text" data-i18n="project_title">{{ translations.project_title }}</h5>
+                <p class="grey-text text-lighten-4" data-i18n="license_info">{{ translations.license_info }}</p>
+            </section>
+            <section class="col l4 offset-l2 s12">
+                <h5 class="white-text" data-i18n="contacts">{{ translations.contacts }}</h5>
+                <ul>
+                    <li><a class="grey-text text-lighten-3" href="https://github.com/ZenonEl/RemoteGamepad" 
+                          target="_blank" data-i18n="github">{{ translations.github }}</a></li>
+                    <li><a class="grey-text text-lighten-3" href="https://github.com/ZenonEl/RemoteGamepad" 
+                      target="_blank" data-i18n="mastodon">{{ translations.mastodon }}</a></li>
+                </ul>
+            </section>
+        </div>
+    </div>
+    <div class="footer-copyright">
+        <div class="container" data-i18n="copyright">
+            {{ translations.copyright }}
+        </div>
+    </div>
+</footer>
+
+<aside id="docs-modal" class="modal" role="dialog">
+    <div class="modal-content">
+        <h4 data-i18n="instructions">{{ translations.instructions }}</h4>
+        <p data-i18n="step1">{{ translations.step1 }}</p>
+    </div>
+</aside>
