@@ -97,7 +97,7 @@ function updateJoystickData(data) {
 
     data.buttons.forEach(button => {
         const li = document.createElement('li');
-        li.textContent = `${button.name} ${button.pressed ? 'нажата' : 'отпущена'} (${button.value.toFixed(2)})`;
+        li.textContent = `${button.name} ${button.pressed ? '⚡️' : '💤'} (${button.value.toFixed(2)})`;
         buttonsList.appendChild(li);
     });
 }
