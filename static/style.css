@@ -1,7 +1,20 @@
-body {
-    font-family: 'Inter', sans-serif;
-    font-size: 1rem;
-    transition: background-color 0.3s, color 0.3s;
+:root {
+    --primary-color: #1e88e5;
+    --primary-dark: #1976d2;
+    --primary-light: #42a5f5;
+    --text-light: #e0e0e0;
+    --text-dark: #424242;
+    --background-light: #fafafa;
+    --background-dark: #121212;
+    --card-bg-light: #e0e0e0;
+    --card-bg-dark: #2b2b2b;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+html, body {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 body.dark-theme {
@@ -14,20 +27,23 @@ body.light-theme {
     color: #424242;
 }
 
-.nav-wrapper {
-    background-color: #1e88e5;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    height: max-content;
-    transition: background-color 0.3s;
+footer {
+    width: 100vw;
 }
 
-#joystick-data {
-    background-color: #2b2b2b;
-    color: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
+h1 {
+    font-size: 4vh;
+}
+
+input, button {
+    font-size: 1.2rem;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
     transition: background-color 0.3s, color 0.3s;
+    margin: 0; /* Убрать стандартные отступы */
 }
 
 .light-theme {
@@ -38,6 +54,26 @@ body.light-theme {
 
 .theme-transition * {
     transition: background 0.3s, color 0.3s;
+}
+
+.modal.card-panel {
+    background-color: var(--card-bg);
+}
+
+body.light-theme .modal.card-panel {
+    --card-bg: #e0e0e0;
+}
+body.dark-theme .modal.card-panel {
+    --card-bg: #2b2b2b;
+}
+
+#joystick-data {
+    background-color: #2b2b2b;
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.3s, color 0.3s;
 }
 
 body.light-theme #joystick-data {
@@ -57,7 +93,7 @@ input {
 .card-panel {
     border-radius: 12px;
     padding: 2rem;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
     transition: background-color 0.3s, color 0.3s;
 }
 
@@ -72,6 +108,16 @@ input {
 .nav-buttons {
     display: flex;
     gap: 1vw;
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.nav-wrapper {
+    background-color: #1e88e5;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    height: max-content;
+    transition: background-color 0.3s;
 }
 
 .btn-floating {
@@ -85,31 +131,15 @@ input {
     background-color: rgba(255, 255, 255, 0.3);
 }
 
-/* Подвал "прилипает" к низу экрана */
-html, body {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
 .content-container {
     flex-grow: 1;
 }
 
 .container {
     display: flex;
-    padding-top: 1vh;
-    padding-bottom: 5vh;
     flex-direction: column;
     align-items: center;
-}
-
-h1 {
-    font-size: 4vh;
-}
-
-input, button {
-    font-size: 1.2rem;
+    justify-content: space-between;
 }
 
 .brand-logo {
@@ -118,323 +148,33 @@ input, button {
     padding-left: 10vw;
 }
 
-@media screen and (max-width: 600px) {
-    .brand-logo {
-        position: unset !important;
-        font-size: 1.5rem;
-        padding-left: 10vw;
-    }
-
-    .btn-floating {
-        width: 40px;
-        height: 40px;
-    }
-
-    .nav-buttons {
-        gap: 1vw;
-    }
-}
-
 .btn-floating:active {
     transform: scale(0.9) !important;
 }
 
-#content-container {
-    opacity: 1;
-    transition: opacity 0.3s;
+.fixed-action-btn {
+    list-style: none;
+    padding: 0;
 }
 
-.htmx-swapping {
-    opacity: 0;
-}
-
-@media screen and (min-width: 601px) {
-    .btn-floating {
-        width: 48px;
-        height: 48px;
-    }
-
-    .brand-logo {
-        position: unset !important;
-        font-size: 2rem;
-        padding-left: 10vw;
-    }
-}
-
-/* Общие стили */
-body {
-    font-family: 'Inter', sans-serif;
-    font-size: 1rem;
-    transition: background-color 0.3s, color 0.3s;
-    margin: 0; /* Убрать стандартные отступы */
-}
-
-/* Темы */
-body.dark-theme {
-    background-color: #121212;
-    color: #e0e0e0;
-}
-
-body.light-theme {
-    background-color: #fafafa;
-    color: #424242;
-}
-
-/* Навигация */
-.nav-wrapper {
-    background-color: #1e88e5;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    height: max-content;
-    transition: background-color 0.3s;
-}
-
-.nav-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-}
-
-.nav-buttons {
-    display: flex;
-    gap: 1vw;
-    list-style: none; /* Убрать точки у списка */
-    padding-left: 0; /* Убрать отступ слева */
-    margin: 0; /* Убрать стандартные отступы */
-}
-
-/* Кнопки */
-.btn-floating {
-    width: 48px;
-    height: 48px;
-    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s, opacity 0.3s, background-color 0.3s;
-    display: flex; /* Для выравнивания иконок */
-    justify-content: center;
-    align-items: center;
-}
-
-/* Исправление для Material Icons */
-.btn-floating i.material-icons {
-    font-size: 24px; /* Фиксированный размер иконок */
-    line-height: 1; /* Убрать лишний отступ */
-}
-
-/* Всплывающее меню */
 .fixed-action-btn ul {
     display: flex;
     flex-direction: column;
-    gap: 10px; /* Равномерные отступы между кнопками */
+    gap: 10px;
     padding: 0;
     margin: 0;
-}
-
-/* Блок с данными джойстика */
-#joystick-data {
-    background-color: #2b2b2b;
-    color: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
-    transition: background-color 0.3s, color 0.3s;
-}
-
-body.light-theme #joystick-data {
-    background-color: #e0e0e0;
-    color: black;
-}
-
-/* Карточки */
-.card-panel {
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-    transition: background-color 0.3s, color 0.3s;
-}
-
-/* Подвал */
-html, body {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.content-container {
-    flex-grow: 1;
-}
-
-.container {
-    display: flex;
-    padding-top: 1vh;
-    padding-bottom: 5vh;
-    flex-direction: column;
     align-items: center;
 }
 
-/* Адаптивность */
-@media screen and (max-width: 600px) {
-    .nav-buttons {
-        gap: 2vw; /* Увеличить отступ на мобильных */
-    }
-}
-
-/* HTMX-анимации */
 #content-container {
     opacity: 1;
     transition: opacity 0.3s;
 }
 
-.htmx-swapping {
-    opacity: 0;
-}
-
-/* Общие стили */
-body {
-    font-family: 'Inter', sans-serif;
-    font-size: 1rem;
-    transition: background-color 0.3s, color 0.3s;
-    margin: 0; /* Убрать стандартные отступы */
-}
-
-/* Темы */
-body.dark-theme {
-    background-color: #121212;
-    color: #e0e0e0;
-}
-
-body.light-theme {
-    background-color: #fafafa;
-    color: #424242;
-}
-
-/* Навигация */
-.nav-wrapper {
-    background-color: #1e88e5;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    height: max-content;
-    transition: background-color 0.3s;
-}
-
-.nav-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-}
-
-.nav-buttons {
-    display: flex;
-    gap: 1vw;
-    list-style: none; /* Убрать точки у списка */
-    padding-left: 0; /* Убрать отступ слева */
-    margin: 0; /* Убрать стандартные отступы */
-}
-
-/* Кнопки */
-.btn-floating {
-    width: 48px;
-    height: 48px;
-    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s, opacity 0.3s, background-color 0.3s;
-    display: flex; /* Для выравнивания иконок */
-    justify-content: center;
-    align-items: center;
-}
-
-/* Исправление для Material Icons */
-.btn-floating i.material-icons {
-    font-size: 24px; /* Фиксированный размер иконок */
-    line-height: 1; /* Убрать лишний отступ */
-}
-
-/* Всплывающее меню */
-.fixed-action-btn ul {
-    display: flex;
-    flex-direction: column;
-    gap: 10px; /* Равномерные отступы между кнопками */
-    padding: 0;
-    margin: 0;
-}
-
-/* Блок с данными джойстика */
-#joystick-data {
-    background-color: #2b2b2b;
-    color: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
-    transition: background-color 0.3s, color 0.3s;
-}
-
-body.light-theme #joystick-data {
-    background-color: #e0e0e0;
-    color: black;
-}
-
-/* Карточки */
-.card-panel {
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-    transition: background-color 0.3s, color 0.3s;
-}
-
-/* Подвал */
-html, body {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.content-container {
-    flex-grow: 1;
-}
-
-.container {
-    display: flex;
-    padding-top: 1vh;
-    padding-bottom: 5vh;
-    flex-direction: column;
-    align-items: center;
-}
-
-/* Адаптивность */
-@media screen and (max-width: 600px) {
-    .btn-floating {
-        width: 40px;
-        height: 40px;
-    }
-
-    .nav-buttons {
-        gap: 2vw; /* Увеличить отступ на мобильных */
-    }
-}
-
-@media screen and (min-width: 601px) {
-    .btn-floating {
-        width: 48px;
-        height: 48px;
-    }
-}
-
-/* HTMX-анимации */
-#content-container {
-    opacity: 1;
-    transition: opacity 0.3s;
-}
-
-.htmx-swapping {
-    opacity: 0;
-}
-
-/* Скрытые элементы */
 .hidden {
     display: none;
 }
 
-/* Анимация для плавного появления */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -445,7 +185,6 @@ html, body {
     to { opacity: 0; transform: translateY(-10px); }
 }
 
-/* Классы для анимации */
 .fade-out {
     animation: fadeOut 0.5s ease-in-out forwards;
 }
@@ -454,7 +193,6 @@ html, body {
     animation: fadeIn 0.5s ease-in-out forwards;
 }
 
-/* Убедитесь, что элементы скрыты во время анимации */
 .htmx-swapping {
     opacity: 0;
 }
