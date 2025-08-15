@@ -111,12 +111,7 @@ class RemoteGamepadApp:
                 color=Colors.WHITE,
                 disabled=True
             ),
-            ft.ElevatedButton(
-                "🧪 Тест QR",
-                on_click=self._test_qr_code,
-                bgcolor=Colors.ORANGE_400,
-                color=Colors.WHITE
-            ),
+
             ft.ElevatedButton(
                 "⚙️ Настройки",
                 on_click=self._open_settings,
@@ -125,14 +120,36 @@ class RemoteGamepadApp:
             )
         ])
         
+        # Поле для IP адреса сервера
+        self.server_ip_input = ft.TextField(
+            label="IP адрес сервера",
+            value=settings.server.host,
+            width=200,
+            hint_text="IP для запуска сервера (0.0.0.0 = все интерфейсы)"
+        )
+        
+        # Поле для IP адреса в QR-коде
+        self.qr_ip_input = ft.TextField(
+            label="IP для QR-кода",
+            value="100.102.5.118",
+            width=200,
+            hint_text="IP для подключения клиентов"
+        )
+        
         # Информация о сервере
         server_info = ft.Card(
             content=ft.Container(
                 content=ft.Column([
                     ft.Text("📊 Информация о сервере", weight=ft.FontWeight.BOLD),
-                    ft.Text(f"🌐 Адрес: {settings.server.host}:{settings.server.port}"),
+                    ft.Text(f"🌐 Сервер: {settings.server.host}:{settings.server.port}"),
                     ft.Text(f"👥 Максимум клиентов: {settings.server.max_clients}"),
-                    self.status_text
+                    self.status_text,
+                    ft.Divider(),
+                    ft.Text("🔧 Настройки подключения:", weight=ft.FontWeight.BOLD),
+                    ft.Text("IP сервера (для запуска):"),
+                    self.server_ip_input,
+                    ft.Text("IP для QR-кода (для клиентов):"),
+                    self.qr_ip_input
                 ]),
                 padding=15
             )
@@ -207,25 +224,97 @@ class RemoteGamepadApp:
     async def _start_server(self, e: ft.ControlEvent) -> None:
         """Запуск сервера"""
         try:
-            if await self.server.start():
+            # Получаем IP из поля ввода
+            server_ip = self.server_ip_input.value if self.server_ip_input.value else "0.0.0.0"
+            
+            # Обновляем настройки сервера
+            self.server._host = server_ip
+            logger.info(f"Starting server on {server_ip}:{settings.server.port}")
+            
+            # Запускаем сервер в отдельном потоке
+            import threading
+            server_thread = threading.Thread(
+                target=self._run_server_in_thread,
+                args=(server_ip,),
+                daemon=True
+            )
+            server_thread.start()
+            
+            # Ждем немного для запуска
+            await asyncio.sleep(1.0)
+            
+            # Проверяем статус через uvicorn
+            if hasattr(self.server, '_server_instance') and self.server._server_instance:
+                # Устанавливаем флаг запуска
+                self.server.is_running = True
                 await self._update_server_status(True)
                 await self._update_qr_code()
                 logger.info("Server started successfully")
             else:
-                await self._show_error("Не удалось запустить сервер")
+                # Дополнительная проверка - возможно сервер уже запущен
+                await asyncio.sleep(0.5)
+                if hasattr(self.server, '_server_instance') and self.server._server_instance:
+                    self.server.is_running = True
+                    await self._update_server_status(True)
+                    await self._update_qr_code()
+                    logger.info("Server started successfully (delayed check)")
+                else:
+                    await self._show_error("Не удалось запустить сервер")
+                
         except Exception as ex:
             logger.error(f"Failed to start server: {ex}")
             await self._show_error(f"Ошибка запуска сервера: {ex}")
     
+    def _run_server_in_thread(self, host: str) -> None:
+        """Запуск сервера в отдельном потоке"""
+        try:
+            import asyncio
+            import uvicorn
+            
+            # Создаем новый event loop для потока
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # Запускаем сервер
+            config = uvicorn.Config(
+                app=self.server.app,
+                host=host,
+                port=settings.server.port,
+                log_level=settings.server.log_level.lower(),
+                access_log=settings.server.debug
+            )
+            
+            server = uvicorn.Server(config)
+            self.server._server_instance = server
+            self.server._host = host
+            
+            # Устанавливаем флаг запуска
+            self.server.is_running = True
+            logger.info(f"Server thread started on {host}:{settings.server.port}")
+            
+            # Запускаем сервер
+            loop.run_until_complete(server.serve())
+            
+        except Exception as e:
+            logger.error(f"Error in server thread: {e}")
+            self.server.is_running = False
+    
     async def _stop_server(self, e: ft.ControlEvent) -> None:
         """Остановка сервера"""
         try:
-            if await self.server.stop():
-                await self._update_server_status(False)
-                await self._clear_qr_code()
-                logger.info("Server stopped successfully")
+            # Останавливаем сервер
+            if hasattr(self.server, '_server_instance') and self.server._server_instance:
+                self.server._server_instance.should_exit = True
+                self.server.is_running = False
+                logger.info("Server stop signal sent")
             else:
-                await self._show_error("Не удалось остановить сервер")
+                logger.warning("No server instance found")
+            
+            # Обновляем UI
+            await self._update_server_status(False)
+            await self._clear_qr_code()
+            logger.info("Server stopped successfully")
+                
         except Exception as ex:
             logger.error(f"Failed to stop server: {ex}")
             await self._show_error(f"Ошибка остановки сервера: {ex}")
@@ -235,11 +324,7 @@ class RemoteGamepadApp:
         # TODO: Реализовать окно настроек
         logger.info("Settings dialog requested")
     
-    async def _test_qr_code(self, e: ft.ControlEvent) -> None:
-        """Тестирование генерации QR-кода"""
-        logger.info("Testing QR code generation...")
-        await self._update_qr_code()
-        await self._show_info("Настройки будут доступны в следующей версии")
+
     
     async def _update_server_status(self, is_running: bool) -> None:
         """Обновление статуса сервера в UI"""
@@ -332,10 +417,9 @@ class RemoteGamepadApp:
             import socket
             import os
             
-            # Получаем локальный IP
-            hostname = socket.gethostname()
-            local_ip = socket.gethostbyname(hostname)
-            url = f"http://{local_ip}:{settings.server.port}"
+            # Получаем IP из поля ввода для QR-кода
+            qr_ip = self.qr_ip_input.value if self.qr_ip_input.value else "100.102.5.118"
+            url = f"http://{qr_ip}:{settings.server.port}"
             
             logger.info(f"Generating QR code for URL: {url}")
             
@@ -381,7 +465,7 @@ class RemoteGamepadApp:
                 self.qr_container.update()
                 
                 logger.info("QR code UI updated successfully")
-                logger.info(f"QR-код сгенерирован для {local_ip}")
+                logger.info(f"QR-код сгенерирован для {qr_ip}")
             
         except Exception as e:
             logger.error(f"Error generating QR code: {e}")

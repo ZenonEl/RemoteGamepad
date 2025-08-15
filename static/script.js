@@ -47,13 +47,24 @@ function getGamepadData() {
 }
 
 function sendGamepadData(data) {
+    // Добавляем client_id если есть
+    const clientId = localStorage.getItem('client_id') || 'web_client';
+    const gamepadData = {
+        ...data,
+        client_id: clientId,
+        timestamp: Date.now()
+    };
+    
     fetch('/gamepad_data', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(gamepadData)
     }).then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return response.json();
     }).then(result => {
         console.log('Response from server:', result);
@@ -61,7 +72,9 @@ function sendGamepadData(data) {
         updateJoystickData(data);
         checkForChanges();
     }).catch(error => {
-        console.error('Error:', error);
+        console.error('Error sending gamepad data:', error);
+        // Показываем ошибку пользователю
+        showStatusMessage('❌ Ошибка отправки', 'error');
     });
 }
 
@@ -133,7 +146,7 @@ function handleNicknameSave() {
 saveNicknameButton.addEventListener('click', handleNicknameSave);
 
 // ================== Инициализация при загрузке ==================
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     // Загрузка темы
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') body.classList.add('light-theme');
@@ -146,9 +159,44 @@ window.addEventListener('load', () => {
     const lang = localStorage.getItem('language') || 'ru';
     if (lang) loadTranslations(lang);
     
+    // Подключаемся к серверу
+    await connectToServer();
+    
     // Запуск геймпада
     requestAnimationFrame(update);
 });
+
+// ================== Подключение к серверу ==================
+async function connectToServer() {
+    try {
+        const response = await fetch('/connect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                ip_address: window.location.hostname,
+                user_agent: navigator.userAgent
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                localStorage.setItem('client_id', data.client_id);
+                console.log('Connected to server with ID:', data.client_id);
+                showStatusMessage('✅ Подключен к серверу', 'success');
+            } else {
+                throw new Error(data.message || 'Connection failed');
+            }
+        } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('Error connecting to server:', error);
+        showStatusMessage('❌ Ошибка подключения', 'error');
+    }
+}
 
 // ================== Система переводов ==================
 async function loadTranslations(lang) {
@@ -187,14 +235,19 @@ const statusMessage = document.getElementById('status-message');
 
 async function checkServerConnection() {
     try {
-        const response = await fetch('/ping', { method: 'GET' });
+        const response = await fetch('/status', { method: 'GET' });
         if (response.ok) {
-            showStatusMessage('⚡️', 'success');
+            const data = await response.json();
+            if (data.status === 'running') {
+                showStatusMessage('⚡️ Сервер работает', 'success');
+            } else {
+                showStatusMessage('💤 Сервер остановлен', 'error');
+            }
         } else {
-            showStatusMessage('💤', 'error');
+            showStatusMessage('💤 Сервер недоступен', 'error');
         }
     } catch (error) {
-        showStatusMessage('💤', 'error');
+        showStatusMessage('💤 Ошибка соединения', 'error');
     }
 }
 

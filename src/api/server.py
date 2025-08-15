@@ -4,6 +4,7 @@ FastAPI сервер для RemoteGamepad
 import asyncio
 import logging
 import time
+import os
 from typing import Dict, List, Optional
 import json
 import qrcode
@@ -78,6 +79,10 @@ class FastAPIServer:
         self.start_time = time.time()
         self.is_running = False
         
+        # Атрибуты для управления сервером
+        self._host = "0.0.0.0"
+        self._server_instance = None
+        
         self._setup_app()
         self._setup_event_handlers()
         
@@ -113,7 +118,12 @@ class FastAPIServer:
         
         # Static files
         try:
-            self.app.mount("/static", StaticFiles(directory="static"), name="static")
+            static_dir = os.path.join(os.getcwd(), "static")
+            if os.path.exists(static_dir):
+                self.app.mount("/static", StaticFiles(directory=static_dir), name="static")
+                logger.info(f"Static files mounted from: {static_dir}")
+            else:
+                logger.warning(f"Static directory not found: {static_dir}")
         except Exception as e:
             logger.warning(f"Could not mount static files: {e}")
         
@@ -126,10 +136,16 @@ class FastAPIServer:
         async def index():
             """Главная страница"""
             try:
-                with open("templates/index.html", "r", encoding="utf-8") as f:
-                    return f.read()
-            except FileNotFoundError:
-                return "<h1>RemoteGamepad Server</h1><p>Web interface not found</p>"
+                template_path = os.path.join(os.getcwd(), "templates", "index.html")
+                if os.path.exists(template_path):
+                    with open(template_path, "r", encoding="utf-8") as f:
+                        return f.read()
+                else:
+                    logger.warning(f"Template not found: {template_path}")
+                    return "<h1>RemoteGamepad Server</h1><p>Template not found</p>"
+            except Exception as e:
+                logger.error(f"Error loading template: {e}")
+                return f"<h1>RemoteGamepad Server</h1><p>Error loading template: {e}</p>"
         
         @self.app.get("/status", response_model=ServerStatusResponse)
         async def get_status():

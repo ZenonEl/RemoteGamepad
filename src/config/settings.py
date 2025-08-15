@@ -55,6 +55,9 @@ class AppSettings:
         # Сервер
         if host := os.getenv("RG_HOST"):
             self.server.host = host
+        else:
+            # По умолчанию используем 0.0.0.0 для всех интерфейсов
+            self.server.host = "0.0.0.0"
         
         if port := os.getenv("RG_PORT"):
             self.server.port = int(port)
