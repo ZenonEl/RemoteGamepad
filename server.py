@@ -1,4 +1,3 @@
-import flet as ft
 import requests
 import json, os
 from evdev import UInput, AbsInfo, ecodes as e
@@ -135,32 +134,6 @@ def run_flask():
         debug=get_setting("DEBUG")
     )
 
-# def check_server_status(page: ft.Page):
-#     server_ip = get_setting("SERVER_IP")
-#     server_port = get_setting("SERVER_PORT")
-#     url = f"http://{server_ip}:{server_port}"
-    
-#     container = ft.Container(
-#         content=ft.Column([
-#             ft.Text("Проверка статуса сервера...", style=ft.TextThemeStyle.HEADLINE_SMALL),
-#             ft.ProgressRing()
-#         ], alignment=ft.MainAxisAlignment.CENTER),
-#         width=page.width,
-#         height=page.height,
-#     )
-    
-#     page.add(container)
-#     page.update()
-    
-#     try:
-#         response = requests.get(url, timeout=2)
-#         status = response.status_code == 200
-#     except requests.RequestException:
-#         status = False
-    
-#     page.remove(container)
-#     return status
-
 def load_translations(lang):
     lang_dir = os.path.join(app.root_path, 'lang')
     with open(os.path.join(lang_dir, f'{lang}.json'), 'r', encoding='utf-8') as f:
@@ -178,6 +151,9 @@ def get_translations(lang):
 def index():
     return render_template('index.html')
 
+@app.route('/ping')
+def ping():
+    return jsonify({"status": "ok"}), 200
 
 if __name__ == "__main__":
     controller = VirtualJoystick()

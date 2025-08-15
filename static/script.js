@@ -180,6 +180,39 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
     setTimeout(() => main.classList.remove('fade-in'), 500);
 });
 
+// ================== Проверка соединения ==================
+const testConnectionButton = document.getElementById('test-connection');
+const connectionStatus = document.getElementById('connection-status');
+const statusMessage = document.getElementById('status-message');
+
+async function checkServerConnection() {
+    try {
+        const response = await fetch('/ping', { method: 'GET' });
+        if (response.ok) {
+            showStatusMessage('⚡️', 'success');
+        } else {
+            showStatusMessage('💤', 'error');
+        }
+    } catch (error) {
+        showStatusMessage('💤', 'error');
+    }
+}
+
+function showStatusMessage(message, statusClass) {
+    // Устанавливаем текст и класс для уведомления
+    statusMessage.textContent = message;
+    connectionStatus.className = ''; // Очищаем предыдущие классы
+    connectionStatus.classList.add(statusClass, 'visible');
+
+    // Скрываем уведомление через 3 секунды
+    setTimeout(() => {
+        connectionStatus.classList.remove('visible');
+    }, 3000);
+}
+
+// Назначаем обработчик на кнопку Wi-Fi
+testConnectionButton.addEventListener('click', checkServerConnection);
+
 // ================== Всплывающее меню ==================
 document.addEventListener('DOMContentLoaded', () => {
     const fab = document.querySelector('.fixed-action-btn');

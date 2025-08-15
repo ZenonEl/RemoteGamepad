@@ -122,7 +122,12 @@
                 <p data-i18n="step1">1. Подключите ПК и телефон к одной сети...</p>
             </div>
         </aside>
+        <!-- Уведомление о статусе соединения -->
+        <div id="connection-status" class="hidden">
+            <span id="status-message"></span>
+        </div>
     </main>
+
 
     <!-- Скрипты -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>

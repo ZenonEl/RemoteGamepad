@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 # * SERVER DATA
 SERVER_IP = "0.0.0.0"
-SERVER_PORT = 5001
+SERVER_PORT = 5002
 
 INTERVAL_SEND_TIMING = 50
 
