@@ -123,7 +123,14 @@ class FastAPIServer:
                 self.app.mount("/static", StaticFiles(directory=static_dir), name="static")
                 logger.info(f"Static files mounted from: {static_dir}")
             else:
-                logger.warning(f"Static directory not found: {static_dir}")
+                # Попробуем найти static относительно текущего файла
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                static_dir = os.path.join(current_dir, "..", "..", "static")
+                if os.path.exists(static_dir):
+                    self.app.mount("/static", StaticFiles(directory=static_dir), name="static")
+                    logger.info(f"Static files mounted from: {static_dir}")
+                else:
+                    logger.warning(f"Static directory not found: {static_dir}")
         except Exception as e:
             logger.warning(f"Could not mount static files: {e}")
         
@@ -136,7 +143,13 @@ class FastAPIServer:
         async def index():
             """Главная страница"""
             try:
+                # Сначала пробуем текущую директорию
                 template_path = os.path.join(os.getcwd(), "templates", "index.html")
+                if not os.path.exists(template_path):
+                    # Пробуем относительно текущего файла
+                    current_dir = os.path.dirname(os.path.abspath(__file__))
+                    template_path = os.path.join(current_dir, "..", "..", "templates", "index.html")
+                
                 if os.path.exists(template_path):
                     with open(template_path, "r", encoding="utf-8") as f:
                         return f.read()
@@ -175,14 +188,22 @@ class FastAPIServer:
                     client_info.get("ip_address", "unknown")
                 )
                 
+                # Получаем profile_name
+                profile_name = client_info.get("profile_name", "Guest")
+                logger.info(f"Client info received: {client_info}")
+                logger.info(f"Profile name: {profile_name}")
+                
                 # Создаем информацию о клиенте
                 client = ClientInfo(
                     client_id=client_id,
                     ip_address=client_info.get("ip_address", "unknown"),
                     user_agent=client_info.get("user_agent", "unknown"),
                     connected_at=time.time(),
-                    status=ClientStatus.CONNECTING
+                    status=ClientStatus.CONNECTING,
+                    profile_name=profile_name
                 )
+                
+                logger.info(f"Creating client with profile_name: {profile_name}")
                 
                 # Добавляем клиента
                 if await self.client_manager.add_client(client):
@@ -191,6 +212,9 @@ class FastAPIServer:
                     
                     if gamepad_id:
                         await self.client_manager.assign_gamepad(client_id, gamepad_id)
+                        
+                        # Обновляем статус на CONNECTED
+                        await self.client_manager.update_client_status(client_id, ClientStatus.CONNECTED)
                         
                         return ConnectionResponse(
                             success=True,
@@ -212,6 +236,44 @@ class FastAPIServer:
                     
             except Exception as e:
                 logger.error(f"Error connecting client: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.post("/update_profile")
+        async def update_profile(data: dict):
+            """Обновление профиля клиента"""
+            try:
+                client_id = data.get("client_id")
+                profile_name = data.get("profile_name")
+                
+                if not client_id or not profile_name:
+                    raise HTTPException(status_code=400, detail="Client ID and profile name required")
+                
+                # Обновляем профиль клиента
+                await self.client_manager.update_client_profile(client_id, profile_name)
+                logger.info(f"Profile updated for client {client_id}: {profile_name}")
+                
+                return {"success": True, "message": "Profile updated"}
+            except Exception as e:
+                logger.error(f"Error updating profile: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.post("/disconnect")
+        async def disconnect_client(data: dict):
+            """Отключение клиента"""
+            try:
+                client_id = data.get("client_id")
+                if not client_id:
+                    raise HTTPException(status_code=400, detail="Client ID required")
+                
+                # Отключаем клиента
+                if await self.client_manager.remove_client(client_id):
+                    logger.info(f"Client {client_id} disconnected")
+                    return {"success": True, "message": "Disconnected successfully"}
+                else:
+                    raise HTTPException(status_code=404, detail="Client not found")
+                    
+            except Exception as e:
+                logger.error(f"Error disconnecting client: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
         
         @self.app.post("/gamepad_data")

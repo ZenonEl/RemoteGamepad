@@ -24,7 +24,14 @@ const sendDelay = 50;
 
 function getGamepadData() {
     const gamepads = navigator.getGamepads();
+    console.log("Gamepads found:", gamepads.length);
+    
     if (gamepads[0]) {
+        console.log("Gamepad 0:", gamepads[0]);
+        console.log("Gamepad connected:", gamepads[0].connected);
+        console.log("Axes count:", gamepads[0].axes.length);
+        console.log("Buttons count:", gamepads[0].buttons.length);
+        
         const axes = {
             left_stick: {
                 x: gamepads[0].axes[0],
@@ -42,6 +49,8 @@ function getGamepadData() {
             index: index
         }));
         return { type: "axis", axes: axes, buttons: buttons };
+    } else {
+        console.log("No gamepad found at index 0");
     }
     return null;
 }
@@ -55,6 +64,8 @@ function sendGamepadData(data) {
         timestamp: Date.now()
     };
     
+    console.log('🎮 Sending gamepad data:', gamepadData);
+    
     fetch('/gamepad_data', {
         method: 'POST',
         headers: {
@@ -62,17 +73,18 @@ function sendGamepadData(data) {
         },
         body: JSON.stringify(gamepadData)
     }).then(response => {
+        console.log('📡 Response status:', response.status);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
     }).then(result => {
-        console.log('Response from server:', result);
+        console.log('✅ Response from server:', result);
         // После отправки данных снова проверяем состояние
         updateJoystickData(data);
         checkForChanges();
     }).catch(error => {
-        console.error('Error sending gamepad data:', error);
+        console.error('❌ Error sending gamepad data:', error);
         // Показываем ошибку пользователю
         showStatusMessage('❌ Ошибка отправки', 'error');
     });
@@ -134,12 +146,32 @@ const nicknameInput = document.getElementById('nickname-input');
 const nicknameDisplay = document.getElementById('nickname-display');
 const saveNicknameButton = document.getElementById('save-nickname');
 
-function handleNicknameSave() {
+async function handleNicknameSave() {
     const nickname = nicknameInput.value.trim();
     if (!nickname) return;
     
     localStorage.setItem('nickname', nickname);
     nicknameDisplay.textContent = nickname;
+    
+    // Обновляем имя на сервере
+    try {
+        const clientId = localStorage.getItem('client_id');
+        if (clientId) {
+            await fetch('/update_profile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    client_id: clientId,
+                    profile_name: nickname
+                })
+            });
+        }
+    } catch (error) {
+        console.error('Error updating profile:', error);
+    }
+    
     M.toast({html: 'Ник сохранён!'});
 }
 
@@ -166,6 +198,33 @@ window.addEventListener('load', async () => {
     requestAnimationFrame(update);
 });
 
+// ================== Обработка геймпада ==================
+window.addEventListener('gamepadconnected', (e) => {
+    console.log('🎮 Gamepad connected:', e.gamepad);
+    showStatusMessage('🎮 Геймпад подключен', 'success');
+});
+
+window.addEventListener('gamepaddisconnected', (e) => {
+    console.log('🎮 Gamepad disconnected:', e.gamepad);
+    showStatusMessage('🎮 Геймпад отключен', 'error');
+});
+
+// ================== Обработка отключения ==================
+window.addEventListener('beforeunload', async () => {
+    await disconnectFromServer();
+});
+
+window.addEventListener('pagehide', async () => {
+    await disconnectFromServer();
+});
+
+// Обработка потери фокуса (мобильные устройства)
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'hidden') {
+        await disconnectFromServer();
+    }
+});
+
 // ================== Подключение к серверу ==================
 async function connectToServer() {
     try {
@@ -176,7 +235,8 @@ async function connectToServer() {
             },
             body: JSON.stringify({
                 ip_address: window.location.hostname,
-                user_agent: navigator.userAgent
+                user_agent: navigator.userAgent,
+                profile_name: localStorage.getItem('nickname') || 'Guest'
             })
         });
         
@@ -195,6 +255,27 @@ async function connectToServer() {
     } catch (error) {
         console.error('Error connecting to server:', error);
         showStatusMessage('❌ Ошибка подключения', 'error');
+    }
+}
+
+async function disconnectFromServer() {
+    try {
+        const clientId = localStorage.getItem('client_id');
+        if (clientId) {
+            await fetch('/disconnect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    client_id: clientId
+                })
+            });
+            localStorage.removeItem('client_id');
+            console.log('Disconnected from server');
+        }
+    } catch (error) {
+        console.error('Error disconnecting from server:', error);
     }
 }
 

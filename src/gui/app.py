@@ -44,6 +44,8 @@ class RemoteGamepadApp:
         await self._build_ui()
         await self._setup_event_handlers()
         
+        # НЕ запускаем периодические задачи здесь - они вызывают ошибки
+        
         logger.info("GUI application started")
     
     async def _wait_for_page_ready(self) -> None:
@@ -82,58 +84,124 @@ class RemoteGamepadApp:
             return
         
         # Заголовок
-        title = ft.Text(
-            "🎮 RemoteGamepad Server",
-            size=24,
-            weight=ft.FontWeight.BOLD,
-            color=Colors.BLUE_400
+        title = ft.Container(
+            content=ft.Text(
+                "🎮 RemoteGamepad Server",
+                size=28,
+                weight=ft.FontWeight.BOLD,
+                color=Colors.WHITE
+            ),
+            padding=20,
+            bgcolor=Colors.BLUE_900,
+            border_radius=12,
+            margin=ft.margin.only(bottom=20)
         )
         
         # Статус сервера
-        self.status_text = ft.Text(
-            "🔴 Сервер остановлен",
-            size=16,
-            color=Colors.RED_400
+        self.status_text = ft.Container(
+            content=ft.Text(
+                "🔴 Сервер остановлен",
+                size=18,
+                weight=ft.FontWeight.NORMAL,
+                color=Colors.WHITE
+            ),
+            padding=15,
+            bgcolor=Colors.RED_900,
+            border_radius=8,
+            margin=ft.margin.only(bottom=20)
         )
         
         # Управление сервером
-        self.server_controls = ft.Row([
-            ft.ElevatedButton(
-                "▶️ Запустить сервер",
-                on_click=self._start_server,
-                bgcolor=Colors.GREEN_400,
-                color=Colors.WHITE
-            ),
-            ft.ElevatedButton(
-                "⏹️ Остановить сервер",
-                on_click=self._stop_server,
-                bgcolor=Colors.RED_400,
-                color=Colors.WHITE,
-                disabled=True
-            ),
-
-            ft.ElevatedButton(
-                "⚙️ Настройки",
-                on_click=self._open_settings,
-                bgcolor=Colors.BLUE_400,
-                color=Colors.WHITE
-            )
-        ])
-        
-        # Поле для IP адреса сервера
-        self.server_ip_input = ft.TextField(
-            label="IP адрес сервера",
-            value=settings.server.host,
-            width=200,
-            hint_text="IP для запуска сервера (0.0.0.0 = все интерфейсы)"
+        self.server_controls = ft.Container(
+            content=ft.Row([
+                ft.ElevatedButton(
+                    "▶️ Запустить сервер",
+                    on_click=self._start_server,
+                    bgcolor=Colors.GREEN_600,
+                    color=Colors.WHITE,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=15
+                    )
+                ),
+                ft.ElevatedButton(
+                    "⏹️ Остановить сервер",
+                    on_click=self._stop_server,
+                    bgcolor=Colors.RED_600,
+                    color=Colors.WHITE,
+                    disabled=True,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=15
+                    )
+                ),
+                ft.ElevatedButton(
+                    "⚙️ Настройки",
+                    on_click=self._open_settings,
+                    bgcolor=Colors.BLUE_600,
+                    color=Colors.WHITE,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=15
+                    )
+                ),
+                ft.ElevatedButton(
+                    "🔄 Обновить список",
+                    on_click=self._refresh_client_list,
+                    bgcolor=Colors.ORANGE_600,
+                    color=Colors.WHITE,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=15
+                    )
+                )
+            ], spacing=10),
+            padding=20,
+            bgcolor=Colors.GREY_900,
+            border_radius=12,
+            margin=ft.margin.only(bottom=20)
         )
         
-        # Поле для IP адреса в QR-коде
-        self.qr_ip_input = ft.TextField(
-            label="IP для QR-кода",
+        # Поле для IP адреса сервера
+        self.server_ip_field = ft.TextField(
+            value=settings.server.host,
+            width=250,
+            hint_text="IP для запуска сервера (0.0.0.0 = все интерфейсы)",
+            border_color=Colors.BLUE_400,
+            focused_border_color=Colors.BLUE_200,
+            hint_style=ft.TextStyle(color=Colors.GREY_400)
+        )
+        
+        self.server_ip_input = ft.Container(
+            content=ft.Column([
+                ft.Text("🌐 IP адрес сервера", size=16, weight=ft.FontWeight.NORMAL, color=Colors.WHITE),
+                self.server_ip_field
+            ]),
+            padding=15,
+            bgcolor=Colors.GREY_900,
+            border_radius=8,
+            margin=ft.margin.only(bottom=10)
+        )
+        
+        # Поле для IP адреса в QR-кода
+        self.qr_ip_field = ft.TextField(
             value="100.102.5.118",
-            width=200,
-            hint_text="IP для подключения клиентов"
+            width=250,
+            hint_text="IP для подключения клиентов",
+            border_color=Colors.GREEN_400,
+            focused_border_color=Colors.GREEN_200,
+            hint_style=ft.TextStyle(color=Colors.GREY_400)
+        )
+        
+        self.qr_ip_input = ft.Container(
+            content=ft.Column([
+                ft.Text("📱 IP для QR-кода", size=16, weight=ft.FontWeight.NORMAL, color=Colors.WHITE),
+                self.qr_ip_field
+            ]),
+            padding=15,
+            bgcolor=Colors.GREY_900,
+            border_radius=8,
+            margin=ft.margin.only(bottom=20)
         )
         
         # Информация о сервере
@@ -201,14 +269,24 @@ class RemoteGamepadApp:
             )
         )
         
-        # Добавляем все элементы на страницу
-        self.page.add(
+        # Собираем все элементы в ScrollView
+        main_content = ft.Column([
             title,
             self.server_controls,
             ft.Row([
                 ft.Column([server_info, clients_card], expand=2),
                 ft.Column([qr_card], expand=1)
             ], expand=True)
+        ], spacing=20)
+        
+        # Добавляем прокрутку через ListView
+        self.page.add(
+            ft.ListView(
+                controls=[main_content],
+                expand=True,
+                spacing=20,
+                padding=20
+            )
         )
         
         logger.info("UI built and ready")
@@ -218,6 +296,10 @@ class RemoteGamepadApp:
         # Подписываемся на события клиентов
         self.event_bus.subscribe_client("client_connected", self._on_client_connected)
         self.event_bus.subscribe_client("client_disconnected", self._on_client_disconnected)
+        self.event_bus.subscribe_client("client_profile_updated", self._on_client_profile_updated)
+        
+        # Запускаем периодическое обновление списка клиентов
+        # НЕ используем asyncio.create_task() здесь - это может вызвать проблемы с event loop
         
         logger.debug("Event handlers set up")
     
@@ -225,7 +307,7 @@ class RemoteGamepadApp:
         """Запуск сервера"""
         try:
             # Получаем IP из поля ввода
-            server_ip = self.server_ip_input.value if self.server_ip_input.value else "0.0.0.0"
+            server_ip = self.server_ip_field.value if self.server_ip_field.value else "0.0.0.0"
             
             # Обновляем настройки сервера
             self.server._host = server_ip
@@ -310,11 +392,19 @@ class RemoteGamepadApp:
             else:
                 logger.warning("No server instance found")
             
+            # Удаляем всех клиентов при остановке сервера
+            try:
+                await self.client_manager.cleanup_all_clients()
+                logger.info("All clients removed after server stop")
+            except Exception as ex:
+                logger.error(f"Error cleaning up clients: {ex}")
+            
             # Обновляем UI
             await self._update_server_status(False)
             await self._clear_qr_code()
+            await self._update_client_list()
             logger.info("Server stopped successfully")
-                
+            
         except Exception as ex:
             logger.error(f"Failed to stop server: {ex}")
             await self._show_error(f"Ошибка остановки сервера: {ex}")
@@ -324,7 +414,16 @@ class RemoteGamepadApp:
         # TODO: Реализовать окно настроек
         logger.info("Settings dialog requested")
     
-
+    async def _refresh_client_list(self, e: ft.ControlEvent) -> None:
+        """Принудительное обновление списка клиентов"""
+        logger.info("Manual refresh of client list requested")
+        try:
+            # Получаем клиентов напрямую без await
+            clients = self.client_manager._clients.values()
+            await self._update_client_list_direct(list(clients))
+        except Exception as ex:
+            logger.error(f"Error refreshing client list: {ex}")
+            await self._show_error(f"Ошибка обновления: {ex}")
     
     async def _update_server_status(self, is_running: bool) -> None:
         """Обновление статуса сервера в UI"""
@@ -332,17 +431,17 @@ class RemoteGamepadApp:
             return
         
         if is_running:
-            self.status_text.value = "🟢 Сервер запущен"
-            self.status_text.color = Colors.GREEN_400
+            self.status_text.content.value = "🟢 Сервер запущен"
+            self.status_text.bgcolor = Colors.GREEN_900
             # Обновляем кнопки
-            self.server_controls.controls[0].disabled = True  # Запустить
-            self.server_controls.controls[1].disabled = False  # Остановить
+            self.server_controls.content.controls[0].disabled = True  # Запустить
+            self.server_controls.content.controls[1].disabled = False  # Остановить
         else:
-            self.status_text.value = "🔴 Сервер остановлен"
-            self.status_text.color = Colors.RED_400
+            self.status_text.content.value = "🔴 Сервер остановлен"
+            self.status_text.bgcolor = Colors.RED_900
             # Обновляем кнопки
-            self.server_controls.controls[0].disabled = False  # Запустить
-            self.server_controls.controls[1].disabled = True  # Остановить
+            self.server_controls.content.controls[0].disabled = False  # Запустить
+            self.server_controls.content.controls[1].disabled = True  # Остановить
         
         # ПРИНУДИТЕЛЬНО обновляем элементы
         if self.status_text:
@@ -354,20 +453,49 @@ class RemoteGamepadApp:
     
     async def _on_client_connected(self, client_info) -> None:
         """Обработчик подключения клиента"""
+        profile_name = getattr(client_info, 'profile_name', None) or 'Без имени'
+        logger.info(f"🟢 Клиент подключился: {client_info.client_id} ({client_info.ip_address}) - {profile_name}")
         await self._update_client_list()
         logger.debug(f"Client connected event handled: {client_info.client_id}")
     
     async def _on_client_disconnected(self, client_info) -> None:
         """Обработчик отключения клиента"""
+        profile_name = getattr(client_info, 'profile_name', None) or 'Без имени'
+        logger.info(f"🔴 Клиент отключился: {client_info.client_id} ({client_info.ip_address}) - {profile_name}")
         await self._update_client_list()
         logger.debug(f"Client disconnected event handled: {client_info.client_id}")
+    
+    async def _on_client_profile_updated(self, client_info) -> None:
+        """Обработчик обновления профиля клиента"""
+        profile_name = getattr(client_info, 'profile_name', None) or 'Без имени'
+        logger.info(f"🔄 Профиль клиента обновлен: {client_info.client_id} -> {profile_name}")
+        await self._update_client_list()
+        logger.debug(f"Client profile updated event handled: {client_info.client_id}")
     
     async def _update_client_list(self) -> None:
         """Обновление списка клиентов"""
         if not self.client_list:
             return
         
-        clients = await self.client_manager.get_clients()
+        try:
+            # Получаем клиентов напрямую без await
+            clients = list(self.client_manager._clients.values())
+            await self._update_client_list_direct(clients)
+        except Exception as ex:
+            logger.error(f"Error updating client list: {ex}")
+            # Fallback - показываем ошибку
+            if self.client_list:
+                self.client_list.controls.clear()
+                self.client_list.controls.append(
+                    ft.Text(f"Ошибка загрузки: {ex}", color=Colors.RED_400)
+                )
+                self.client_list.update()
+    
+    async def _update_client_list_direct(self, clients: list) -> None:
+        """Прямое обновление списка клиентов без обращения к ClientManager"""
+        if not self.client_list:
+            return
+        
         self.client_list.controls.clear()
         
         if not clients:
@@ -383,22 +511,56 @@ class RemoteGamepadApp:
                     "error": Colors.ORANGE_400
                 }.get(client.status.value, Colors.GREY_400)
                 
+                # Показываем имя клиента если есть
+                client_name = getattr(client, 'profile_name', None) or client.client_id
+                
                 client_card = ft.Container(
-                    content=ft.Row([
-                        ft.Text(f"🔗 {client.client_id}", expand=True),
-                        ft.Text(f"📍 {client.ip_address}"),
-                        ft.Icon(ft.icons.CIRCLE, color=status_color, size=12)
+                    content=ft.Column([
+                        ft.Row([
+                            ft.Text(f"🔗 {client_name}", weight=ft.FontWeight.BOLD, expand=True, color=Colors.WHITE),
+                            ft.Icon(ft.Icons.CIRCLE, color=status_color, size=16)
+                        ]),
+                        ft.Text(f"📍 {client.ip_address}", size=12, color=Colors.GREY_300),
+                        ft.Text(f"🆔 {client.client_id[:8]}...", size=10, color=Colors.GREY_400),
+                        ft.Text(f"⏰ {self._format_time(client.connected_at)}", size=10, color=Colors.GREY_400)
                     ]),
-                    padding=10,
-                    bgcolor=Colors.SURFACE_VARIANT,
-                    border_radius=5
+                    padding=20,
+                    bgcolor=Colors.GREY_800,
+                    border_radius=12,
+                    border=ft.border.all(1, Colors.GREY_700),
+                    margin=ft.margin.only(bottom=10),
+                    shadow=ft.BoxShadow(
+                        spread_radius=1,
+                        blur_radius=15,
+                        color=Colors.BLACK,
+                        offset=ft.Offset(2, 2)
+                    )
                 )
                 self.client_list.controls.append(client_card)
         
         if self.client_list:
             self.client_list.update()
             
-        logger.info(f"Client list updated with {len(clients)} clients")
+        logger.info(f"Client list updated directly with {len(clients)} clients")
+    
+    def _format_time(self, timestamp: float) -> str:
+        """Форматирование времени подключения"""
+        try:
+            from datetime import datetime
+            dt = datetime.fromtimestamp(timestamp)
+            now = datetime.now()
+            diff = now - dt
+            
+            if diff.days > 0:
+                return f"{diff.days}д {diff.seconds // 3600}ч"
+            elif diff.seconds > 3600:
+                return f"{diff.seconds // 3600}ч {(diff.seconds % 3600) // 60}м"
+            elif diff.seconds > 60:
+                return f"{diff.seconds // 60}м"
+            else:
+                return f"{diff.seconds}с"
+        except:
+            return "???"
     
     async def _show_error(self, message: str) -> None:
         """Показ сообщения об ошибке"""
@@ -418,7 +580,7 @@ class RemoteGamepadApp:
             import os
             
             # Получаем IP из поля ввода для QR-кода
-            qr_ip = self.qr_ip_input.value if self.qr_ip_input.value else "100.102.5.118"
+            qr_ip = self.qr_ip_field.value if self.qr_ip_field.value else "100.102.5.118"
             url = f"http://{qr_ip}:{settings.server.port}"
             
             logger.info(f"Generating QR code for URL: {url}")

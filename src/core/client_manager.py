@@ -43,6 +43,8 @@ class ClientManagerImpl(IClientManager):
             self._clients[client_info.client_id] = client_info
             
             logger.info(f"Client connected: {client_info.client_id} from {client_info.ip_address}")
+            logger.info(f"Client profile_name: {getattr(client_info, 'profile_name', 'NOT SET')}")
+            logger.info(f"Client full info: {client_info}")
             
             # Отправляем событие
             await self._event_bus.emit_client("client_connected", client_info)
@@ -64,7 +66,7 @@ class ClientManagerImpl(IClientManager):
             
             del self._clients[client_id]
             
-            logger.info(f"Client disconnected: {client_id}")
+            logger.info(f"Client {client_id} removed from {client_info.ip_address}")
             return True
     
     async def get_clients(self) -> List[ClientInfo]:
@@ -104,6 +106,24 @@ class ClientManagerImpl(IClientManager):
             await self._event_bus.emit_client("client_gamepad_assigned", self._clients[client_id])
             return True
     
+    async def update_client_profile(self, client_id: str, profile_name: str) -> bool:
+        """Обновление профиля клиента"""
+        async with self._lock:
+            if client_id not in self._clients:
+                logger.warning(f"Cannot update profile: client {client_id} not found")
+                return False
+            
+            old_name = getattr(self._clients[client_id], 'profile_name', None)
+            self._clients[client_id].profile_name = profile_name
+            
+            logger.info(f"Profile updated for client {client_id}: {old_name} -> {profile_name}")
+            
+            if old_name != profile_name:
+                logger.info(f"Client {client_id} profile name changed: {old_name} -> {profile_name}")
+                await self._event_bus.emit_client("client_profile_updated", self._clients[client_id])
+            
+            return True
+    
     async def get_client_count(self) -> int:
         """Получение количества подключенных клиентов"""
         async with self._lock:
@@ -135,6 +155,14 @@ class ClientManagerImpl(IClientManager):
             logger.info(f"Cleaned up {removed_count} inactive clients")
         
         return removed_count
+    
+    async def cleanup_all_clients(self) -> int:
+        """Очистка всех клиентов (при остановке сервера)"""
+        async with self._lock:
+            client_count = len(self._clients)
+            self._clients.clear()
+            logger.info(f"All {client_count} clients removed")
+            return client_count
     
     async def generate_client_id(self, ip_address: str) -> str:
         """Генерация уникального ID для клиента"""
