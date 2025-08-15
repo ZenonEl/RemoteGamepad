@@ -12,7 +12,9 @@ from ..config.settings import settings
 from ..utils.dependency import container, inject
 from ..core.events import EventBus
 from ..core.client_manager import ClientManagerImpl
-from ..utils.types import ClientManager
+from ..core.gamepad_manager import GamepadManagerImpl
+from ..api.server import FastAPIServer
+from ..utils.types import ClientManager, GamepadManager
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +26,14 @@ class RemoteGamepadApp:
         self.page: Optional[ft.Page] = None
         self.event_bus: EventBus = inject(EventBus)
         self.client_manager: ClientManager = inject(ClientManager)
+        self.gamepad_manager: GamepadManager = inject(GamepadManager)
+        self.server: FastAPIServer = inject(FastAPIServer)
         
         # UI элементы
         self.status_text: Optional[ft.Text] = None
         self.client_list: Optional[ft.ListView] = None
         self.server_controls: Optional[ft.Row] = None
+        self.qr_image: Optional[ft.Image] = None
         
         logger.info("RemoteGamepadApp initialized")
     
@@ -126,19 +131,30 @@ class RemoteGamepadApp:
             )
         )
         
-        # QR код для подключения (заглушка пока)
+        # QR код для подключения
+        self.qr_image = ft.Image(
+            width=150,
+            height=150,
+            fit=ft.ImageFit.CONTAIN
+        )
+        
+        qr_placeholder = ft.Container(
+            content=ft.Text("Запустите сервер\nдля генерации QR", 
+                           text_align=ft.TextAlign.CENTER, size=12),
+            bgcolor=Colors.GREY_200,
+            height=150,
+            width=150,
+            alignment=ft.alignment.center,
+            border_radius=10
+        )
+        
+        self.qr_container = ft.Stack([qr_placeholder])
+        
         qr_card = ft.Card(
             content=ft.Container(
                 content=ft.Column([
                     ft.Text("📱 QR-код для подключения", weight=ft.FontWeight.BOLD),
-                    ft.Container(
-                        content=ft.Text("QR код будет здесь", text_align=ft.TextAlign.CENTER),
-                        bgcolor=Colors.GREY_200,
-                        height=150,
-                        width=150,
-                        alignment=ft.alignment.center,
-                        border_radius=10
-                    )
+                    self.qr_container
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                 padding=15
             )
@@ -165,9 +181,12 @@ class RemoteGamepadApp:
     async def _start_server(self, e: ft.ControlEvent) -> None:
         """Запуск сервера"""
         try:
-            # TODO: Здесь будет запуск реального сервера
-            await self._update_server_status(True)
-            logger.info("Server start requested")
+            if await self.server.start():
+                await self._update_server_status(True)
+                await self._update_qr_code()
+                logger.info("Server started successfully")
+            else:
+                await self._show_error("Не удалось запустить сервер")
         except Exception as ex:
             logger.error(f"Failed to start server: {ex}")
             await self._show_error(f"Ошибка запуска сервера: {ex}")
@@ -175,9 +194,12 @@ class RemoteGamepadApp:
     async def _stop_server(self, e: ft.ControlEvent) -> None:
         """Остановка сервера"""
         try:
-            # TODO: Здесь будет остановка реального сервера
-            await self._update_server_status(False)
-            logger.info("Server stop requested")
+            if await self.server.stop():
+                await self._update_server_status(False)
+                await self._clear_qr_code()
+                logger.info("Server stopped successfully")
+            else:
+                await self._show_error("Не удалось остановить сервер")
         except Exception as ex:
             logger.error(f"Failed to stop server: {ex}")
             await self._show_error(f"Ошибка остановки сервера: {ex}")
@@ -274,6 +296,60 @@ class RemoteGamepadApp:
             )
             self.page.snack_bar.open = True
             await self.page.update_async()
+    
+    async def _update_qr_code(self) -> None:
+        """Обновление QR-кода"""
+        try:
+            import qrcode
+            import io
+            import socket
+            
+            # Получаем локальный IP
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+            url = f"http://{local_ip}:{settings.server.port}"
+            
+            # Генерируем QR код
+            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+            qr.add_data(url)
+            qr.make(fit=True)
+            
+            # Сохраняем во временный файл
+            img = qr.make_image(fill_color="black", back_color="white")
+            temp_path = "/tmp/qr_code.png"
+            img.save(temp_path)
+            
+            # Обновляем UI
+            if self.qr_container and self.page:
+                self.qr_image.src = temp_path
+                self.qr_container.controls.clear()
+                self.qr_container.controls.append(self.qr_image)
+                await self.page.update_async()
+                
+            logger.info(f"QR code generated for {url}")
+            
+        except Exception as e:
+            logger.error(f"Error generating QR code: {e}")
+            await self._show_error("Ошибка генерации QR-кода")
+    
+    async def _clear_qr_code(self) -> None:
+        """Очистка QR-кода"""
+        try:
+            if self.qr_container and self.page:
+                placeholder = ft.Container(
+                    content=ft.Text("Сервер остановлен", 
+                                   text_align=ft.TextAlign.CENTER, size=12),
+                    bgcolor=Colors.GREY_200,
+                    height=150,
+                    width=150,
+                    alignment=ft.alignment.center,
+                    border_radius=10
+                )
+                self.qr_container.controls.clear()
+                self.qr_container.controls.append(placeholder)
+                await self.page.update_async()
+        except Exception as e:
+            logger.error(f"Error clearing QR code: {e}")
 
 
 async def run_gui_app() -> None:
@@ -281,9 +357,13 @@ async def run_gui_app() -> None:
     # Настройка DI контейнера
     event_bus = EventBus()
     client_manager = ClientManagerImpl(event_bus, settings.server.max_clients)
+    gamepad_manager = GamepadManagerImpl(event_bus)
+    fastapi_server = FastAPIServer(event_bus, client_manager, gamepad_manager)
     
     container.register_singleton(EventBus, event_bus)
     container.register_singleton(ClientManager, client_manager)
+    container.register_singleton(GamepadManager, gamepad_manager)
+    container.register_singleton(FastAPIServer, fastapi_server)
     
     # Создание и запуск приложения
     app = RemoteGamepadApp()
