@@ -162,3 +162,4 @@ config/user_settings.yaml
 cert.pem
 key.pem
 /output
+/temp

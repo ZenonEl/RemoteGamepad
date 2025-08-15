@@ -46,6 +46,24 @@ class RemoteGamepadApp:
         
         logger.info("GUI application started")
     
+    async def _wait_for_page_ready(self) -> None:
+        """Ожидание готовности страницы"""
+        if not self.page:
+            return
+        
+        # Проверяем что страница готова
+        max_attempts = 10
+        for attempt in range(max_attempts):
+            try:
+                # Пробуем получить доступ к странице
+                if hasattr(self.page, '_page'):
+                    break
+                await asyncio.sleep(0.1)
+            except Exception:
+                await asyncio.sleep(0.1)
+        
+        logger.debug(f"Page ready after {attempt + 1} attempts")
+    
     async def _setup_page(self) -> None:
         """Настройка основной страницы"""
         if not self.page:
@@ -92,6 +110,12 @@ class RemoteGamepadApp:
                 bgcolor=Colors.RED_400,
                 color=Colors.WHITE,
                 disabled=True
+            ),
+            ft.ElevatedButton(
+                "🧪 Тест QR",
+                on_click=self._test_qr_code,
+                bgcolor=Colors.ORANGE_400,
+                color=Colors.WHITE
             ),
             ft.ElevatedButton(
                 "⚙️ Настройки",
@@ -169,6 +193,8 @@ class RemoteGamepadApp:
                 ft.Column([qr_card], expand=1)
             ], expand=True)
         )
+        
+        logger.info("UI built and ready")
     
     async def _setup_event_handlers(self) -> None:
         """Настройка обработчиков событий"""
@@ -208,6 +234,11 @@ class RemoteGamepadApp:
         """Открытие настроек"""
         # TODO: Реализовать окно настроек
         logger.info("Settings dialog requested")
+    
+    async def _test_qr_code(self, e: ft.ControlEvent) -> None:
+        """Тестирование генерации QR-кода"""
+        logger.info("Testing QR code generation...")
+        await self._update_qr_code()
         await self._show_info("Настройки будут доступны в следующей версии")
     
     async def _update_server_status(self, is_running: bool) -> None:
@@ -217,19 +248,24 @@ class RemoteGamepadApp:
         
         if is_running:
             self.status_text.value = "🟢 Сервер запущен"
-            self.status_text.color = ft.colors.GREEN_400
+            self.status_text.color = Colors.GREEN_400
             # Обновляем кнопки
             self.server_controls.controls[0].disabled = True  # Запустить
             self.server_controls.controls[1].disabled = False  # Остановить
         else:
             self.status_text.value = "🔴 Сервер остановлен"
-            self.status_text.color = ft.colors.RED_400
+            self.status_text.color = Colors.RED_400
             # Обновляем кнопки
             self.server_controls.controls[0].disabled = False  # Запустить
             self.server_controls.controls[1].disabled = True  # Остановить
         
-        if self.page:
-            await self.page.update_async()
+        # ПРИНУДИТЕЛЬНО обновляем элементы
+        if self.status_text:
+            self.status_text.update()
+        if self.server_controls:
+            self.server_controls.update()
+            
+        logger.info(f"Server status updated: {'running' if is_running else 'stopped'}")
     
     async def _on_client_connected(self, client_info) -> None:
         """Обработчик подключения клиента"""
@@ -274,70 +310,91 @@ class RemoteGamepadApp:
                 )
                 self.client_list.controls.append(client_card)
         
-        if self.page:
-            await self.page.update_async()
+        if self.client_list:
+            self.client_list.update()
+            
+        logger.info(f"Client list updated with {len(clients)} clients")
     
     async def _show_error(self, message: str) -> None:
         """Показ сообщения об ошибке"""
-        if self.page:
-            self.page.snack_bar = ft.SnackBar(
-                content=ft.Text(message),
-                bgcolor=Colors.RED_400
-            )
-            self.page.snack_bar.open = True
-            await self.page.update_async()
+        # НЕ показываем snackbar - Flet не готов
+        logger.error(f"Error: {message}")
     
     async def _show_info(self, message: str) -> None:
         """Показ информационного сообщения"""
-        if self.page:
-            self.page.snack_bar = ft.SnackBar(
-                content=ft.Text(message),
-                bgcolor=Colors.BLUE_400
-            )
-            self.page.snack_bar.open = True
-            await self.page.update_async()
+        # НЕ показываем snackbar - Flet не готов
+        logger.info(f"Info: {message}")
     
     async def _update_qr_code(self) -> None:
         """Обновление QR-кода"""
         try:
             import qrcode
-            import io
             import socket
+            import os
             
             # Получаем локальный IP
             hostname = socket.gethostname()
             local_ip = socket.gethostbyname(hostname)
             url = f"http://{local_ip}:{settings.server.port}"
             
+            logger.info(f"Generating QR code for URL: {url}")
+            
             # Генерируем QR код
             qr = qrcode.QRCode(version=1, box_size=10, border=5)
             qr.add_data(url)
             qr.make(fit=True)
             
-            # Сохраняем во временный файл
+            # Создаем изображение
             img = qr.make_image(fill_color="black", back_color="white")
-            temp_path = "/tmp/qr_code.png"
-            img.save(temp_path)
+            
+            # Сохраняем в проектную папку (более надежно)
+            qr_dir = os.path.join(os.getcwd(), "temp")
+            os.makedirs(qr_dir, exist_ok=True)
+            qr_path = os.path.join(qr_dir, "qr_code.png")
+            
+            img.save(qr_path)
+            logger.info(f"QR code saved to: {qr_path}")
+            
+            # Проверяем, что файл создался
+            if not os.path.exists(qr_path):
+                raise FileNotFoundError(f"QR file not created: {qr_path}")
+            
+            file_size = os.path.getsize(qr_path)
+            logger.info(f"QR file size: {file_size} bytes")
             
             # Обновляем UI
-            if self.qr_container and self.page:
-                self.qr_image.src = temp_path
+            if self.qr_container:
+                # Очищаем старые элементы
                 self.qr_container.controls.clear()
-                self.qr_container.controls.append(self.qr_image)
-                await self.page.update_async()
                 
-            logger.info(f"QR code generated for {url}")
+                # Создаем новое изображение
+                qr_img = ft.Image(
+                    src=qr_path,
+                    width=150,
+                    height=150,
+                    fit=ft.ImageFit.CONTAIN,
+                    border_radius=10
+                )
+                
+                self.qr_container.controls.append(qr_img)
+                
+                self.qr_container.update()
+                
+                logger.info("QR code UI updated successfully")
+                logger.info(f"QR-код сгенерирован для {local_ip}")
             
         except Exception as e:
             logger.error(f"Error generating QR code: {e}")
-            await self._show_error("Ошибка генерации QR-кода")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            await self._show_error(f"Ошибка генерации QR-кода: {str(e)}")
     
     async def _clear_qr_code(self) -> None:
         """Очистка QR-кода"""
         try:
-            if self.qr_container and self.page:
+            if self.qr_container:
                 placeholder = ft.Container(
-                    content=ft.Text("Сервер остановлен", 
+                    content=ft.Text("Сервер остановлен\nНажмите 'Запустить'", 
                                    text_align=ft.TextAlign.CENTER, size=12),
                     bgcolor=Colors.GREY_200,
                     height=150,
@@ -347,9 +404,15 @@ class RemoteGamepadApp:
                 )
                 self.qr_container.controls.clear()
                 self.qr_container.controls.append(placeholder)
-                await self.page.update_async()
+                
+                self.qr_container.update()
+                
+                logger.info("QR code cleared, showing placeholder")
+                
         except Exception as e:
             logger.error(f"Error clearing QR code: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
 
 
 async def run_gui_app() -> None:
