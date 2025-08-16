@@ -162,7 +162,7 @@ class RemoteGamepadApp:
             margin=ft.margin.only(bottom=20)
         )
         
-        # Поле для IP адреса сервера
+        # Поле для IP адреса сервера с QR-кодом
         self.server_ip_field = ft.TextField(
             value=settings.server.host,
             width=250,
@@ -172,18 +172,41 @@ class RemoteGamepadApp:
             hint_style=ft.TextStyle(color=Colors.GREY_400)
         )
         
+        # QR-контейнер для сервера
+        server_qr_placeholder = ft.Container(
+            content=ft.Text("Запустите сервер\nдля генерации QR", 
+                           text_align=ft.TextAlign.CENTER, size=10),
+            bgcolor=Colors.GREY_200,
+            height=120,
+            width=120,
+            alignment=ft.alignment.center,
+            border_radius=10
+        )
+        
+        self.server_qr_container = ft.Container(
+            content=server_qr_placeholder,
+            width=120,
+            height=120
+        )
+        
         self.server_ip_input = ft.Container(
-            content=ft.Column([
-                ft.Text("🌐 IP адрес сервера", size=16, weight=ft.FontWeight.NORMAL, color=Colors.WHITE),
-                self.server_ip_field
-            ]),
+            content=ft.Row([
+                ft.Column([
+                    ft.Text("🌐 IP адрес сервера", size=16, weight=ft.FontWeight.NORMAL, color=Colors.WHITE),
+                    self.server_ip_field
+                ], expand=True),
+                ft.Column([
+                    ft.Text("🔗 QR-код сервера", size=14, weight=ft.FontWeight.NORMAL, color=Colors.GREY_400),
+                    self.server_qr_container
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             padding=15,
             bgcolor=Colors.GREY_900,
             border_radius=8,
             margin=ft.margin.only(bottom=10)
         )
         
-        # Поле для IP адреса в QR-кода
+        # Поле для IP адреса клиентов с QR-кодом
         self.qr_ip_field = ft.TextField(
             value="100.102.5.118",
             width=250,
@@ -193,11 +216,34 @@ class RemoteGamepadApp:
             hint_style=ft.TextStyle(color=Colors.GREY_400)
         )
         
+        # QR-контейнер для клиентов
+        client_qr_placeholder = ft.Container(
+            content=ft.Text("Запустите сервер\nдля генерации QR", 
+                           text_align=ft.TextAlign.CENTER, size=10),
+            bgcolor=Colors.GREY_200,
+            height=120,
+            width=120,
+            alignment=ft.alignment.center,
+            border_radius=10
+        )
+        
+        self.client_qr_container = ft.Container(
+            content=client_qr_placeholder,
+            width=120,
+            height=120
+        )
+        
         self.qr_ip_input = ft.Container(
-            content=ft.Column([
-                ft.Text("📱 IP для QR-кода", size=16, weight=ft.FontWeight.NORMAL, color=Colors.WHITE),
-                self.qr_ip_field
-            ]),
+            content=ft.Row([
+                ft.Column([
+                    ft.Text("📱 IP для QR-кода", size=16, weight=ft.FontWeight.NORMAL, color=Colors.WHITE),
+                    self.qr_ip_field
+                ], expand=True),
+                ft.Column([
+                    ft.Text("🔗 QR-код для клиентов", size=14, weight=ft.FontWeight.NORMAL, color=Colors.GREY_400),
+                    self.client_qr_container
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             padding=15,
             bgcolor=Colors.GREY_900,
             border_radius=8,
@@ -240,43 +286,11 @@ class RemoteGamepadApp:
             )
         )
         
-        # QR код для подключения
-        self.qr_image = ft.Image(
-            width=150,
-            height=150,
-            fit=ft.ImageFit.CONTAIN
-        )
-        
-        qr_placeholder = ft.Container(
-            content=ft.Text("Запустите сервер\nдля генерации QR", 
-                           text_align=ft.TextAlign.CENTER, size=12),
-            bgcolor=Colors.GREY_200,
-            height=150,
-            width=150,
-            alignment=ft.alignment.center,
-            border_radius=10
-        )
-        
-        self.qr_container = ft.Stack([qr_placeholder])
-        
-        qr_card = ft.Card(
-            content=ft.Container(
-                content=ft.Column([
-                    ft.Text("📱 QR-код для подключения", weight=ft.FontWeight.BOLD),
-                    self.qr_container
-                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=15
-            )
-        )
-        
         # Собираем все элементы в ScrollView
         main_content = ft.Column([
             title,
             self.server_controls,
-            ft.Row([
-                ft.Column([server_info, clients_card], expand=2),
-                ft.Column([qr_card], expand=1)
-            ], expand=True)
+            ft.Column([server_info, clients_card], expand=True)
         ], spacing=20)
         
         # Добавляем прокрутку через ListView
@@ -573,17 +587,42 @@ class RemoteGamepadApp:
         logger.info(f"Info: {message}")
     
     async def _update_qr_code(self) -> None:
-        """Обновление QR-кода"""
+        """Обновление QR-кодов"""
         try:
             import qrcode
             import socket
             import os
             
-            # Получаем IP из поля ввода для QR-кода
-            qr_ip = self.qr_ip_field.value if self.qr_ip_field.value else "100.102.5.118"
-            url = f"http://{qr_ip}:{settings.server.port}"
+            # Создаем временную папку
+            os.makedirs("temp", exist_ok=True)
             
-            logger.info(f"Generating QR code for URL: {url}")
+            # QR-код для сервера
+            server_ip = self.server_ip_field.value if self.server_ip_field.value else "0.0.0.0"
+            server_url = f"http://{server_ip}:{settings.server.port}"
+            await self._generate_qr_code(server_url, "temp/server_qr.png", self.server_qr_container, "сервера")
+            
+            # QR-код для клиентов
+            qr_ip = self.qr_ip_field.value if self.qr_ip_field.value else "100.102.5.118"
+            client_url = f"http://{qr_ip}:{settings.server.port}"
+            await self._generate_qr_code(client_url, "temp/client_qr.png", self.client_qr_container, "клиентов")
+            
+            # Принудительно обновляем страницу после генерации всех QR-кодов
+            if self.page:
+                self.page.update()
+                logger.info("Page updated after QR code generation")
+                
+            logger.info("QR codes generated and page updated")
+            
+        except Exception as ex:
+            logger.error(f"Failed to generate QR codes: {ex}")
+            await self._show_error(f"Ошибка генерации QR-кодов: {ex}")
+    
+    async def _generate_qr_code(self, url: str, file_path: str, container, description: str) -> None:
+        """Генерация отдельного QR-кода"""
+        try:
+            import qrcode
+            
+            logger.info(f"Generating QR code for {description}: {url}")
             
             # Генерируем QR код
             qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -593,72 +632,81 @@ class RemoteGamepadApp:
             # Создаем изображение
             img = qr.make_image(fill_color="black", back_color="white")
             
-            # Сохраняем в проектную папку (более надежно)
-            qr_dir = os.path.join(os.getcwd(), "temp")
-            os.makedirs(qr_dir, exist_ok=True)
-            qr_path = os.path.join(qr_dir, "qr_code.png")
-            
-            img.save(qr_path)
-            logger.info(f"QR code saved to: {qr_path}")
-            
-            # Проверяем, что файл создался
-            if not os.path.exists(qr_path):
-                raise FileNotFoundError(f"QR file not created: {qr_path}")
-            
-            file_size = os.path.getsize(qr_path)
-            logger.info(f"QR file size: {file_size} bytes")
+            # Сохраняем изображение
+            img.save(file_path)
+            logger.info(f"QR code for {description} saved to: {file_path}")
             
             # Обновляем UI
-            if self.qr_container:
-                # Очищаем старые элементы
-                self.qr_container.controls.clear()
-                
-                # Создаем новое изображение
-                qr_img = ft.Image(
-                    src=qr_path,
-                    width=150,
-                    height=150,
-                    fit=ft.ImageFit.CONTAIN,
-                    border_radius=10
-                )
-                
-                self.qr_container.controls.append(qr_img)
-                
-                self.qr_container.update()
-                
-                logger.info("QR code UI updated successfully")
-                logger.info(f"QR-код сгенерирован для {qr_ip}")
+            if container:
+                try:
+                    # Создаем изображение QR кода
+                    qr_img = ft.Image(
+                        src=file_path,
+                        width=120,
+                        height=120,
+                        fit=ft.ImageFit.CONTAIN,
+                        border_radius=10
+                    )
+                    
+                    # Заменяем content контейнера
+                    container.content = qr_img
+                    logger.info(f"QR image set for {description}")
+                    
+                    # Принудительно обновляем контейнер
+                    container.update()
+                    logger.info(f"Container updated for {description}")
+                    
+                except Exception as ui_ex:
+                    logger.error(f"Failed to update UI for {description}: {ui_ex}")
+            else:
+                logger.warning(f"Container is None for {description}")
             
-        except Exception as e:
-            logger.error(f"Error generating QR code: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            await self._show_error(f"Ошибка генерации QR-кода: {str(e)}")
+        except Exception as ex:
+            logger.error(f"Failed to generate QR code for {description}: {ex}")
     
     async def _clear_qr_code(self) -> None:
-        """Очистка QR-кода"""
+        """Очистка QR-кодов"""
         try:
-            if self.qr_container:
-                placeholder = ft.Container(
-                    content=ft.Text("Сервер остановлен\nНажмите 'Запустить'", 
-                                   text_align=ft.TextAlign.CENTER, size=12),
+            # Заменяем content контейнеров с проверкой существования
+            if hasattr(self, 'server_qr_container') and self.server_qr_container:
+                # Создаем отдельный placeholder для сервера
+                server_placeholder = ft.Container(
+                    content=ft.Text("Сервер остановлен\nQR-код недоступен", 
+                                   text_align=ft.TextAlign.CENTER, size=10),
                     bgcolor=Colors.GREY_200,
-                    height=150,
-                    width=150,
+                    height=120,
+                    width=120,
                     alignment=ft.alignment.center,
                     border_radius=10
                 )
-                self.qr_container.controls.clear()
-                self.qr_container.controls.append(placeholder)
-                
-                self.qr_container.update()
-                
-                logger.info("QR code cleared, showing placeholder")
-                
-        except Exception as e:
-            logger.error(f"Error clearing QR code: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+                self.server_qr_container.content = server_placeholder
+                self.server_qr_container.update()
+                logger.info("Server QR container cleared")
+            
+            if hasattr(self, 'client_qr_container') and self.client_qr_container:
+                # Создаем отдельный placeholder для клиентов
+                client_placeholder = ft.Container(
+                    content=ft.Text("Сервер остановлен\nQR-код недоступен", 
+                                   text_align=ft.TextAlign.CENTER, size=10),
+                    bgcolor=Colors.GREY_200,
+                    height=120,
+                    width=120,
+                    alignment=ft.alignment.center,
+                    border_radius=10
+                )
+                self.client_qr_container.content = client_placeholder
+                self.client_qr_container.update()
+                logger.info("Client QR container cleared")
+            
+            # ПРИНУДИТЕЛЬНО обновляем страницу после очистки
+            if self.page:
+                self.page.update()
+                logger.info("Page updated after QR codes cleared")
+            
+            logger.info("QR codes cleared")
+            
+        except Exception as ex:
+            logger.error(f"Failed to clear QR codes: {ex}")
 
 
 async def run_gui_app() -> None:
