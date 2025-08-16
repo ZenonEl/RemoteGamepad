@@ -176,7 +176,7 @@ class RemoteGamepadApp:
         server_qr_placeholder = ft.Container(
             content=ft.Text("Запустите сервер\nдля генерации QR", 
                            text_align=ft.TextAlign.CENTER, size=10),
-            bgcolor=Colors.GREY_200,
+            bgcolor=Colors.BLACK,
             height=120,
             width=120,
             alignment=ft.alignment.center,
@@ -220,7 +220,7 @@ class RemoteGamepadApp:
         client_qr_placeholder = ft.Container(
             content=ft.Text("Запустите сервер\nдля генерации QR", 
                            text_align=ft.TextAlign.CENTER, size=10),
-            bgcolor=Colors.GREY_200,
+            bgcolor=Colors.BLACK,
             height=120,
             width=120,
             alignment=ft.alignment.center,
@@ -230,7 +230,8 @@ class RemoteGamepadApp:
         self.client_qr_container = ft.Container(
             content=client_qr_placeholder,
             width=120,
-            height=120
+            height=120,
+            margin=ft.margin.only(left=40)
         )
         
         self.qr_ip_input = ft.Container(
