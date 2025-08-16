@@ -21,8 +21,7 @@ BUTTON_MAP = {
     "BtnThumbR": e.BTN_THUMBR,
     "BtnShoulderL": e.BTN_TL,
     "BtnShoulderR": e.BTN_TR,
-    "TriggerL": e.ABS_Z,
-    "TriggerR": e.ABS_RZ
+    # Триггеры НЕ здесь - они обрабатываются как оси в gamepad_manager
 }
 
 # * OVERALL

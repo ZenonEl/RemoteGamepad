@@ -322,15 +322,53 @@ class FastAPIServer:
                 # Обрабатываем события кнопок
                 if data.buttons:
                     for button in data.buttons:
-                        event_type = GamepadEventType.BUTTON_PRESS if button.pressed else GamepadEventType.BUTTON_RELEASE
-                        event = GamepadEvent(
+                        # Проверяем, является ли это триггером
+                        if button.name in ['TriggerL', 'TriggerR']:
+                            # Триггеры обрабатываем как оси
+                            event = GamepadEvent(
+                                client_id=client_id,
+                                event_type=GamepadEventType.AXIS_MOVE,
+                                axis_name=button.name,
+                                value=button.pressed,  # True/False для триггеров
+                                timestamp=time.time()
+                            )
+
+                        else:
+                            # Обычные кнопки
+                            event_type = GamepadEventType.BUTTON_PRESS if button.pressed else GamepadEventType.BUTTON_RELEASE
+                            event = GamepadEvent(
+                                client_id=client_id,
+                                event_type=event_type,
+                                button_code=button.name,
+                                value=button.value,
+                                timestamp=time.time()
+                            )
+                        
+                        await self.gamepad_manager.send_event(gamepad_id, event)
+                
+                # Обрабатываем D-PAD события
+                if data.buttons:
+                    # Собираем D-PAD кнопки
+                    dpad_buttons = {btn.name: btn.pressed for btn in data.buttons if btn.name.startswith('Dpad')}
+                    
+                    if dpad_buttons:
+                        # Вычисляем D-PAD координаты как в старом коде
+                        dpad_x = (1 if dpad_buttons.get('Dpad_Right', False) else 0) - (1 if dpad_buttons.get('Dpad_Left', False) else 0)
+                        dpad_y = (1 if dpad_buttons.get('Dpad_Up', False) else 0) - (1 if dpad_buttons.get('Dpad_Down', False) else 0)
+                        
+                        # Инвертируем Y как в старом коде
+                        dpad_y = dpad_y * -1
+                        
+                        # Отправляем D-PAD событие
+                        dpad_event = GamepadEvent(
                             client_id=client_id,
-                            event_type=event_type,
-                            button_code=button.name,
-                            value=button.value,
+                            event_type=GamepadEventType.DPAD,
+                            axis_name="Dpad",
+                            value_x=dpad_x,
+                            value_y=dpad_y,
                             timestamp=time.time()
                         )
-                        await self.gamepad_manager.send_event(gamepad_id, event)
+                        await self.gamepad_manager.send_event(gamepad_id, dpad_event)
                 
                 return {"status": "success"}
                 

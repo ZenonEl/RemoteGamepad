@@ -44,6 +44,8 @@ class GamepadEvent:
     button_code: Optional[str] = None
     axis_name: Optional[str] = None
     value: float = 0.0
+    value_x: Optional[int] = None  # Для D-PAD X координата
+    value_y: Optional[int] = None  # Для D-PAD Y координата
     timestamp: float = 0.0
 
 

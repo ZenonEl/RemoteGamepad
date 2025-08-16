@@ -239,16 +239,30 @@ class GamepadManagerImpl(IGamepadManager):
             elif event.event_type.value == "axis_move":
                 if event.axis_name and event.axis_name in self._axis_map:
                     axis_evdev_code = self._axis_map[event.axis_name]
-                    # Конвертируем значение в диапазон evdev
-                    scaled_value = int(event.value * 32767)
-                    if 'Ly' in event.axis_name or 'Ry' in event.axis_name:
-                        scaled_value = -scaled_value  # Инвертируем Y оси
-                    await gamepad.send_axis_event(axis_evdev_code, scaled_value)
+                    
+                    # Специальная обработка для триггеров
+                    if event.axis_name in ['TriggerL', 'TriggerR']:
+                        # Триггеры: конвертируем булево значение в 0-255
+                        if isinstance(event.value, bool):
+                            scaled_value = 255 if event.value else 0
+                        else:
+                            # Если пришло число 0.0-1.0, конвертируем в 0-255
+                            scaled_value = int(event.value * 255)
+                        
+                        await gamepad.send_axis_event(axis_evdev_code, scaled_value)
+                    else:
+                        # Обычные оси (стики): конвертируем в диапазон -32768 до 32767
+                        scaled_value = int(event.value * 32767)
+                        if 'Ly' in event.axis_name or 'Ry' in event.axis_name:
+                            scaled_value = -scaled_value  # Инвертируем Y оси
+                        await gamepad.send_axis_event(axis_evdev_code, scaled_value)
             
             elif event.event_type.value == "dpad":
-                # D-Pad события нужно парсить из данных события
-                # Это будет реализовано при обработке входящих данных
-                pass
+                # D-Pad события
+                if hasattr(event, 'value_x') and hasattr(event, 'value_y'):
+                    await gamepad.send_dpad_event(event.value_x, event.value_y)
+                else:
+                    logger.warning(f"Gamepad {gamepad_id}: D-PAD event missing coordinates")
     
     async def get_gamepad_for_client(self, client_id: str) -> Optional[int]:
         """Получение ID геймпада для клиента"""
