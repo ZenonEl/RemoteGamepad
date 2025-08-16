@@ -1,5 +1,11 @@
 import requests
 import json, os
+import sys
+from pathlib import Path
+
+# Добавляем корневую папку в путь для импортов
+sys.path.insert(0, str(Path(__file__).parent))
+
 from evdev import UInput, AbsInfo, ecodes as e
 from flask import Flask, jsonify, render_template, request
 from loguru import logger
@@ -59,34 +65,75 @@ class VirtualJoystick:
         self.DPAD_RIGHT = 4
 
     def set_value(self, name, value, is_pressed=None):
+        logger.info(f"set_value called: name='{name}', value={value} (type: {type(value)}), is_pressed={is_pressed}")
+        
         axis_map = {
             'AxisLx': e.ABS_X,
             'AxisLy': e.ABS_Y,
             'AxisRx': e.ABS_RX,
             'AxisRy': e.ABS_RY,
+        }
+        
+        # Триггеры обрабатываем отдельно
+        trigger_map = {
             'TriggerL': e.ABS_Z,
             'TriggerR': e.ABS_RZ
         }
         
         if name in axis_map:
+            # Обычные оси (стики)
             scaled_value = int(value * 32767)
             if 'Ly' in name or 'Ry' in name:
                 scaled_value = -scaled_value
             self.device.write(e.EV_ABS, axis_map[name], scaled_value)
+            self.device.syn()
+        elif name in trigger_map:
+            # Триггеры - если это булево значение (кнопка), конвертируем в 0-255
+            if isinstance(value, bool):
+                # value = True -> 255, value = False -> 0
+                trigger_value = 255 if value else 0
+            else:
+                # Если пришло число 0.0-1.0, конвертируем в 0-255
+                trigger_value = int(value * 255)
+            
+            logger.info(f"Trigger {name}: value={value} -> trigger_value={trigger_value}")
+            self.device.write(e.EV_ABS, trigger_map[name], trigger_value)
             self.device.syn()
         elif name == "Dpad":
             self._handle_dpad(value, is_pressed)
         else:
             btn_code = BUTTON_MAP.get(name)
             if btn_code is not None:
-                self.device.write(e.EV_KEY, btn_code, 1 if value else 0)
+                # Проверяем что это не триггер
+                if btn_code in ["TRIGGER_L", "TRIGGER_R"]:
+                    # Это триггер - обрабатываем как ось
+                    if btn_code == "TRIGGER_L":
+                        trigger_code = e.ABS_Z
+                    else:  # TRIGGER_R
+                        trigger_code = e.ABS_RZ
+                    
+                    # Конвертируем булево значение в 0-255
+                    if isinstance(value, bool):
+                        trigger_value = 255 if value else 0
+                    else:
+                        trigger_value = int(value * 255)
+                    
+                    logger.info(f"Processing trigger {name} as axis: value={value} -> {trigger_value}")
+                    self.device.write(e.EV_ABS, trigger_code, trigger_value)
+                    self.device.syn()
+                else:
+                    # Обычная кнопка
+                    self.device.write(e.EV_KEY, btn_code, 1 if value else 0)
+                    self.device.syn()
         self.device.syn()
 
 
 def process_btn_data(data):
     if "buttons" in data:
+        logger.info(f"Received buttons data: {data['buttons']}")
         for btn in data["buttons"]:
             if not btn["name"].startswith("Dpad"):
+                logger.info(f"Processing button: {btn['name']} = {btn['pressed']} (type: {type(btn['pressed'])})")
                 set_btn_state(btn["name"], btn["pressed"])
 
         button_dict = {button['name']: button for button in data['buttons']}
@@ -106,8 +153,12 @@ def process_btn_data(data):
         controller.device.syn()
 
 def set_btn_state(button_name, is_pressed):
+        logger.info(f"set_btn_state: {button_name} = {is_pressed} (type: {type(is_pressed)})")
         if button_name in BUTTON_MAP:
+            logger.info(f"Button {button_name} found in BUTTON_MAP, calling set_value")
             controller.set_value(button_name, is_pressed)
+        else:
+            logger.warning(f"Button {button_name} NOT found in BUTTON_MAP")
 
 # Flask
 
