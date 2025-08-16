@@ -674,7 +674,7 @@ class RemoteGamepadApp:
                 server_placeholder = ft.Container(
                     content=ft.Text("Сервер остановлен\nQR-код недоступен", 
                                    text_align=ft.TextAlign.CENTER, size=10),
-                    bgcolor=Colors.GREY_200,
+                    bgcolor=Colors.BLACK,
                     height=120,
                     width=120,
                     alignment=ft.alignment.center,
@@ -689,7 +689,7 @@ class RemoteGamepadApp:
                 client_placeholder = ft.Container(
                     content=ft.Text("Сервер остановлен\nQR-код недоступен", 
                                    text_align=ft.TextAlign.CENTER, size=10),
-                    bgcolor=Colors.GREY_200,
+                    bgcolor=Colors.BLACK,
                     height=120,
                     width=120,
                     alignment=ft.alignment.center,
