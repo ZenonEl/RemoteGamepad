@@ -253,8 +253,6 @@ class GamepadManagerImpl(IGamepadManager):
                     else:
                         # Обычные оси (стики): конвертируем в диапазон -32768 до 32767
                         scaled_value = int(event.value * 32767)
-                        if 'Ly' in event.axis_name or 'Ry' in event.axis_name:
-                            scaled_value = -scaled_value  # Инвертируем Y оси
                         await gamepad.send_axis_event(axis_evdev_code, scaled_value)
             
             elif event.event_type.value == "dpad":

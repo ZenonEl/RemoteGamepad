@@ -83,8 +83,6 @@ class VirtualJoystick:
         if name in axis_map:
             # Обычные оси (стики)
             scaled_value = int(value * 32767)
-            if 'Ly' in name or 'Ry' in name:
-                scaled_value = -scaled_value
             self.device.write(e.EV_ABS, axis_map[name], scaled_value)
             self.device.syn()
         elif name in trigger_map:
@@ -149,7 +147,7 @@ def process_btn_data(data):
         print(f"dpad_x: {dpad_x}, dpad_y: {dpad_y}")
 
         controller.device.write(e.EV_ABS, e.ABS_HAT0X, dpad_x)
-        controller.device.write(e.EV_ABS, e.ABS_HAT0Y, dpad_y * -1)
+        controller.device.write(e.EV_ABS, e.ABS_HAT0Y, dpad_y)
         controller.device.syn()
 
 def set_btn_state(button_name, is_pressed):
@@ -171,9 +169,9 @@ def handle_gamepad_data():
     if data.get("type") == "axis":
         axes = data["axes"]
         controller.set_value('AxisLx', float(axes["left_stick"]["x"]))
-        controller.set_value('AxisLy', float(axes["left_stick"]["y"]) * -1)
+        controller.set_value('AxisLy', float(axes["left_stick"]["y"]))
         controller.set_value('AxisRx', float(axes["right_stick"]["x"]))
-        controller.set_value('AxisRy', float(axes["right_stick"]["y"]) * -1)
+        controller.set_value('AxisRy', float(axes["right_stick"]["y"]))
 
     process_btn_data(data)
     return jsonify({"status": "success"}), 200
