@@ -3,15 +3,15 @@
 Отвечает за трансляцию событий в ядро Linux.
 """
 import asyncio
-import logging
-from typing import Dict, Optional
+from typing import Optional
 import time
 
 from evdev import UInput, AbsInfo, ecodes as e
+from loguru import logger
 
-from .mapping_config import BUTTON_MAP, AXIS_MAP, AXIS_LIMITS
+from .mapping_config import BUTTON_MAP, AXIS_MAP
 
-logger = logging.getLogger(__name__)
+logger = logger.bind(module="gamepad")
 
 
 class VirtualGamepadDevice:
@@ -149,7 +149,7 @@ class VirtualGamepadDevice:
             btn_code = BUTTON_MAP.get(name)
             if btn_code:
                 self.device.write(e.EV_KEY, btn_code, 1 if is_pressed else 0)
-                logger.info(f"🎯 Trigger {name} button event: {is_pressed} (value={trigger_value})")
+                logger.debug(f"🎯 Trigger {name} button event: {is_pressed} (value={trigger_value})")
         
         self.device.syn()
 
