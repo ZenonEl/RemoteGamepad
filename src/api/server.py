@@ -1,15 +1,21 @@
 import json
 import logging
+import sys
 from contextlib import asynccontextmanager
-from pprint import pprint
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from loguru import logger
 
 from src.core.gamepad_manager import GamepadManager
 
-# Настраиваем логгер
-logger = logging.getLogger("api")
+logger.remove()
+logger.add(
+    sys.stderr,
+    format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+    level="DEBUG",
+    colorize=True
+)
 
 # Глобальный инстанс менеджера (Singleton для KISS)
 gamepad_manager = GamepadManager()
@@ -84,7 +90,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     # ВОТ ОНО: Триггеры обрабатываются как оси ВНУТРИ списка кнопок
                     if name in["TriggerL", "TriggerR"]:
                         # Отправляем value, чтобы сработала старая конвертация (int(value * 255))
-                        print(name, value)
                         gamepad.process_trigger_as_button(name, value)
                         continue
                     

@@ -45,6 +45,9 @@ class VirtualGamepadDevice:
                 (e.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
             ]
         }
+        
+        # 🔧 ТРЕКИНГ состояния триггеров (для отправки button-событий)
+        self._trigger_state = {"TriggerL": False, "TriggerR": False}
     
     def create(self) -> bool:
         """Создание виртуального устройства в системе"""
@@ -120,21 +123,34 @@ class VirtualGamepadDevice:
 
     def process_trigger_as_button(self, name: str, value) -> None:
         """
-        ВОЗВРАЩЕНО ИЗ СТАРОГО КОДА:
-        Обработка триггеров (L2/R2) ВНУТРИ логики кнопок.
+        🔧 ИСПРАВЛЕНО: Обработка триггеров как ОСЕЙ + КНОПОК одновременно
+        Многие тестеры проверяют оба типа событий!
         """
         if not self.device:
             return
+            
+        # Определяем код оси
         trigger_code = e.ABS_Z if name == "TriggerL" else e.ABS_RZ
         
-        # Конвертируем булево значение или число в 0-255
+        # Конвертируем значение в 0-255
         if isinstance(value, bool):
             trigger_value = 255 if value else 0
         else:
             trigger_value = int(float(value) * 255)
         
-        print(f"Processing trigger {name} as axis: value={value} -> {trigger_value}")
         self.device.write(e.EV_ABS, trigger_code, trigger_value)
+        
+        # Порог срабатывания кнопки: >10% нажатия
+        is_pressed = trigger_value > 25
+        
+        # Отправляем button-событие только если состояние изменилось
+        if self._trigger_state.get(name) != is_pressed:
+            self._trigger_state[name] = is_pressed
+            btn_code = BUTTON_MAP.get(name)
+            if btn_code:
+                self.device.write(e.EV_KEY, btn_code, 1 if is_pressed else 0)
+                logger.info(f"🎯 Trigger {name} button event: {is_pressed} (value={trigger_value})")
+        
         self.device.syn()
 
 class GamepadManager:

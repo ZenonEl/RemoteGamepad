@@ -58,9 +58,10 @@ if __name__ == "__main__":
                 logger.warning("Не удалось отрисовать внешний QR-код")
                 
         print("\n🎮 Сервер запущен. Ожидание подключений...\n")
+        print("="*50)  # 🔧 Разделитель после QR-кодов
 
         # 4. Запуск сервера
-        uvicorn.run("src.api.server:app", host="0.0.0.0", port=PORT, log_level="warning")
+        uvicorn.run("src.api.server:app", host="0.0.0.0", port=PORT, log_level="info")
         
     except KeyboardInterrupt:
         logger.info("\n👋 Сервер остановлен.")
