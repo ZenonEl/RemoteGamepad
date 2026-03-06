@@ -86,7 +86,8 @@ class VirtualGamepadDevice:
             return
             
         axis_code = AXIS_MAP[axis_name]
-        
+        print(axis_name)
+        print(axis_code)
         # Скалирование значения
         if axis_name in ['TriggerL', 'TriggerR']:
             # Триггеры: 0.0 до 1.0 -> 0 до 255

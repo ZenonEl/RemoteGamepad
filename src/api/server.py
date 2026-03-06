@@ -64,7 +64,7 @@ async def websocket_endpoint(websocket: WebSocket):
             # 1. Оси (Стики и Триггеры)
             if "axes" in data:
                 axes = data["axes"]
-                
+                print(axes)
                 # Стики
                 if "left_stick" in axes:
                     gamepad.send_axis('AxisLx', axes["left_stick"]["x"])

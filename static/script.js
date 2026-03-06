@@ -49,18 +49,23 @@ function getGamepadState() {
     if (!gp) return null;
 
     // Извлечение триггеров (L2/R2)
-    // На некоторых геймпадах (как у вас) они висят на осях 4 и 5 со значением от -1 до 1.
-    // На стандартном HTML5 API они висят на кнопках 6 и 7.
-    let lt = 0;
-    let rt = 0;
+    // 1. Приоритет отдаем стандартным кнопкам (6 и 7), браузер обычно сам их маппит
+    let lt = gp.buttons[6] ? gp.buttons[6].value : 0;
+    let rt = gp.buttons[7] ? gp.buttons[7].value : 0;
+
+    // 2. Фоллбэк: если кнопки "молчат" (равны 0), но оси 4 и 5 реагируют
+    if (lt === 0 && gp.axes[4] !== undefined) {
+        let val = gp.axes[4];
+        // Если ось покоится в 0 и идет до 1 (частый случай)
+        if (val > 0.01) lt = val;
+        // Если ось покоится в -1 и идет до 1
+        else if (val < -0.01 || (val > -0.99 && val < 0)) lt = (val + 1) / 2;
+    }
     
-    if (gp.axes.length >= 6) {
-        // Конвертируем из [-1, 1] в [0, 1]
-        lt = (gp.axes[4] + 1) / 2;
-        rt = (gp.axes[5] + 1) / 2;
-    } else {
-        lt = gp.buttons[6]?.value || 0;
-        rt = gp.buttons[7]?.value || 0;
+    if (rt === 0 && gp.axes[5] !== undefined) {
+        let val = gp.axes[5];
+        if (val > 0.01) rt = val;
+        else if (val < -0.01 || (val > -0.99 && val < 0)) rt = (val + 1) / 2;
     }
 
     // Формируем чистый объект данных
