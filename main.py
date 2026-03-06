@@ -1,17 +1,19 @@
-#!/usr/bin/env python3
-"""
-RemoteGamepad - Main launcher
-Запуск сервера для виртуального геймпада
-"""
+import uvicorn
+from loguru import logger
+import sys
 
 if __name__ == "__main__":
-    print("🎮 Запуск RemoteGamepad сервера...")
-    print("Для остановки нажмите Ctrl+C")
     try:
-        import server
-        server.run_flask()
+        # Напоминание про KISS: Пока хардкодим, конфиг подключим позже
+        logger.info("🚀 Starting RemoteGamepad (Linux Native)...")
+        
+        # В будущем здесь будет запуск FastAPI
+        # uvicorn.run("src.api.app:app", host="0.0.0.0", port=5002, reload=True)
+        
+        logger.success("Environment is ready. Waiting for API implementation.")
+        
     except KeyboardInterrupt:
-        print("\n🛑 Сервер остановлен")
+        logger.info("Stopping...")
     except Exception as e:
-        print(f"❌ Ошибка запуска: {e}")
-        print("💡 Попробуйте: python server.py")
+        logger.error(f"Error: {e}")
+        sys.exit(1)
