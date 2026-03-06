@@ -1,19 +1,29 @@
 import uvicorn
-from loguru import logger
+import os
 import sys
+from loguru import logger
+
+# Простая конфигурация (можно вынести в .env)
+HOST = "0.0.0.0"
+PORT = 5002
 
 if __name__ == "__main__":
     try:
-        # Напоминание про KISS: Пока хардкодим, конфиг подключим позже
-        logger.info("🚀 Starting RemoteGamepad (Linux Native)...")
+        # Проверка прав доступа к uinput
+        if not os.access('/dev/uinput', os.W_OK):
+            logger.warning("⚠️  WARNING: No write access to /dev/uinput!")
+            logger.warning("👉 Run: sudo bash scripts/setup_udev.sh")
+            # Мы не выходим, так как может быть пользователь просто тестирует UI
         
-        # В будущем здесь будет запуск FastAPI
-        # uvicorn.run("src.api.app:app", host="0.0.0.0", port=5002, reload=True)
+        logger.info(f"🚀 RemoteGamepad Server starting on http://{HOST}:{PORT}")
+        logger.info("📱 Connect your phone to this IP address")
         
-        logger.success("Environment is ready. Waiting for API implementation.")
+        # Запуск сервера
+        # workers=1 важно для WebSocket и Singleton паттерна в KISS архитектуре
+        uvicorn.run("src.api.server:app", host=HOST, port=PORT, reload=False, workers=1)
         
     except KeyboardInterrupt:
-        logger.info("Stopping...")
+        logger.info("👋 Server stopped by user")
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"❌ Fatal error: {e}")
         sys.exit(1)

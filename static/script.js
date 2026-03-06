@@ -1,108 +1,106 @@
-// Сопоставление индексов кнопок с их именами
+// WebSocket Client Logic
 const buttonMap = {
-    0: 'BtnA',
-    1: 'BtnB',
-    2: 'BtnX',
-    3: 'BtnY',
-    8: 'BtnBack',
-    9: 'BtnStart',
-    10: 'BtnThumbL',
-    11: 'BtnThumbR',
-    4: 'BtnShoulderL',
-    5: 'BtnShoulderR',
-    12: 'Dpad_Up',
-    13: 'Dpad_Down',
-    14: 'Dpad_Left',
-    15: 'Dpad_Right',
-    6: 'TriggerL',
-    7: 'TriggerR'
+    0: 'BtnA', 1: 'BtnB', 2: 'BtnX', 3: 'BtnY',
+    4: 'BtnShoulderL', 5: 'BtnShoulderR',
+    6: 'TriggerL', 7: 'TriggerR',
+    8: 'BtnBack', 9: 'BtnStart',
+    10: 'BtnThumbL', 11: 'BtnThumbR',
+    12: 'Dpad_Up', 13: 'Dpad_Down', 14: 'Dpad_Left', 15: 'Dpad_Right',
+    16: 'BtnMode'
 };
 
-let lastData = null;
-let lastSentTime = performance.now();
-const sendDelay = 50;
+let socket = null;
+let isConnected = false;
+let lastStateJSON = "";
 
-function getGamepadData() {
-    const gamepads = navigator.getGamepads();
-    console.log("Gamepads found:", gamepads.length);
+
+// Инициализация WebSocket
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
     
-    if (gamepads[0]) {
-        console.log("Gamepad 0:", gamepads[0]);
-        console.log("Gamepad connected:", gamepads[0].connected);
-        console.log("Axes count:", gamepads[0].axes.length);
-        console.log("Buttons count:", gamepads[0].buttons.length);
-        
-        const axes = {
-            left_stick: {
-                x: gamepads[0].axes[0],
-                y: gamepads[0].axes[1]
-            },
-            right_stick: {
-                x: gamepads[0].axes[2],
-                y: gamepads[0].axes[3]
-            }
-        };
-        const buttons = gamepads[0].buttons.map((button, index) => ({
-            name: buttonMap[index] || `Button${index}`,
-            pressed: button.pressed,
-            value: button.value,
-            index: index
-        }));
-        return { type: "axis", axes: axes, buttons: buttons };
-    } else {
-        console.log("No gamepad found at index 0");
-    }
-    return null;
-}
+    console.log(`🔌 Connecting to ${wsUrl}...`);
+    socket = new WebSocket(wsUrl);
 
-function sendGamepadData(data) {
-    // Добавляем client_id если есть
-    const clientId = localStorage.getItem('client_id') || 'web_client';
-    const gamepadData = {
-        ...data,
-        client_id: clientId,
-        timestamp: Date.now()
+    socket.onopen = () => {
+        console.log("✅ WebSocket Connected");
+        isConnected = true;
+        showStatusMessage('⚡️ Подключено к ПК', 'success');
+        startLoop();
     };
-    
-    console.log('🎮 Sending gamepad data:', gamepadData);
-    
-    fetch('/gamepad_data', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(gamepadData)
-    }).then(response => {
-        console.log('📡 Response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    }).then(result => {
-        console.log('✅ Response from server:', result);
-        // После отправки данных снова проверяем состояние
-        updateJoystickData(data);
-        checkForChanges();
-    }).catch(error => {
-        console.error('❌ Error sending gamepad data:', error);
-        // Показываем ошибку пользователю
-        showStatusMessage('❌ Ошибка отправки', 'error');
-    });
+
+    socket.onclose = () => {
+        console.log("❌ WebSocket Disconnected");
+        isConnected = false;
+        showStatusMessage('💤 Связь потеряна. Реконнект...', 'error');
+        setTimeout(connectWebSocket, 3000); // Реконнект через 3 сек
+    };
+
+    socket.onerror = (err) => {
+        console.error("WebSocket Error:", err);
+    };
 }
 
-function checkForChanges() {
-    const data = getGamepadData();
-    const now = performance.now();
+// Считывание данных (упрощено и оптимизировано)
+function getGamepadState() {
+    const gamepads = navigator.getGamepads();
+    const gp = gamepads[0]; // Берем первый геймпад
 
-    if (data) {
-        // Отправляем данные, если они изменились или если прошло достаточно времени
-        if (JSON.stringify(data) !== JSON.stringify(lastData) || (now - lastSentTime >= sendDelay)) {
-            lastData = data; // Обновляем последнее состояние
-            sendGamepadData(data); // Отправляем данные
-            lastSentTime = now; // Обновляем время последней отправки
+    if (!gp) return null;
+
+    // Формируем чистый объект данных
+    const state = {
+        axes: {
+            left_stick: { x: gp.axes[0], y: gp.axes[1] },
+            right_stick: { x: gp.axes[2], y: gp.axes[3] }
+        },
+        buttons: gp.buttons.map((btn, idx) => ({
+            name: buttonMap[idx] || `Unknown_${idx}`,
+            pressed: btn.pressed,
+            value: btn.value
+        }))
+    };
+    return state;
+}
+
+// Главный цикл (60 FPS)
+function gameLoop() {
+    if (!isConnected) return;
+
+    const state = getGamepadState();
+    if (state) {
+        // Оптимизация: отправляем только если данные изменились
+        // (JSON.stringify быстрый для небольших объектов)
+        const stateJSON = JSON.stringify(state);
+        
+        if (stateJSON !== lastStateJSON) {
+            socket.send(stateJSON);
+            lastStateJSON = stateJSON;
+            
+            // Обновляем UI (опционально, можно реже для экономии ресурсов)
+            requestAnimationFrame(() => updateUI(state));
         }
     }
+    
+    requestAnimationFrame(gameLoop);
 }
+
+function startLoop() {
+    gameLoop();
+}
+
+// Простой UI апдейтер (чтобы видеть что работает)
+function updateUI(data) {
+    try {
+        document.getElementById('left-stick-x').textContent = data.axes.left_stick.x.toFixed(2);
+        document.getElementById('left-stick-y').textContent = data.axes.left_stick.y.toFixed(2);
+    } catch (e) {}
+}
+
+// Запуск при загрузке
+window.addEventListener('load', () => {
+    connectWebSocket();
+});
 
 // Используем requestAnimationFrame для проверки изменений
 function update() {
