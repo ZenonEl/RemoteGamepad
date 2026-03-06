@@ -48,33 +48,11 @@ function getGamepadState() {
 
     if (!gp) return null;
 
-    // Извлечение триггеров (L2/R2)
-    // 1. Приоритет отдаем стандартным кнопкам (6 и 7), браузер обычно сам их маппит
-    let lt = gp.buttons[6] ? gp.buttons[6].value : 0;
-    let rt = gp.buttons[7] ? gp.buttons[7].value : 0;
-
-    // 2. Фоллбэк: если кнопки "молчат" (равны 0), но оси 4 и 5 реагируют
-    if (lt === 0 && gp.axes[4] !== undefined) {
-        let val = gp.axes[4];
-        // Если ось покоится в 0 и идет до 1 (частый случай)
-        if (val > 0.01) lt = val;
-        // Если ось покоится в -1 и идет до 1
-        else if (val < -0.01 || (val > -0.99 && val < 0)) lt = (val + 1) / 2;
-    }
-    
-    if (rt === 0 && gp.axes[5] !== undefined) {
-        let val = gp.axes[5];
-        if (val > 0.01) rt = val;
-        else if (val < -0.01 || (val > -0.99 && val < 0)) rt = (val + 1) / 2;
-    }
-
-    // Формируем чистый объект данных
+    // Формируем чистый объект данных (без триггеров в осях)
     const state = {
         axes: {
             left_stick: { x: gp.axes[0] || 0, y: gp.axes[1] || 0 },
-            right_stick: { x: gp.axes[2] || 0, y: gp.axes[3] || 0 },
-            trigger_l: lt,
-            trigger_r: rt
+            right_stick: { x: gp.axes[2] || 0, y: gp.axes[3] || 0 }
         },
         buttons: gp.buttons.map((btn, idx) => ({
             name: buttonMap[idx] || `Unknown_${idx}`,
@@ -82,6 +60,32 @@ function getGamepadState() {
             value: btn.value
         }))
     };
+
+    // НАША ХИТРОСТЬ: Если триггеры на телефоне висят на осях 4 и 5,
+    // мы насильно переписываем их значения внутри массива buttons,
+    // чтобы бэкенд обработал их именно там (как в старом коде).
+    const tlIndex = state.buttons.findIndex(b => b.name === 'TriggerL');
+    if (tlIndex !== -1 && state.buttons[tlIndex].value === 0 && gp.axes[4] !== undefined) {
+        let val = gp.axes[4];
+        let lt = 0;
+        if (val > 0.01) lt = val;
+        else if (val < -0.01 || (val > -0.99 && val < 0)) lt = (val + 1) / 2;
+        
+        state.buttons[tlIndex].value = lt;
+        state.buttons[tlIndex].pressed = lt > 0.1;
+    }
+
+    const trIndex = state.buttons.findIndex(b => b.name === 'TriggerR');
+    if (trIndex !== -1 && state.buttons[trIndex].value === 0 && gp.axes[5] !== undefined) {
+        let val = gp.axes[5];
+        let rt = 0;
+        if (val > 0.01) rt = val;
+        else if (val < -0.01 || (val > -0.99 && val < 0)) rt = (val + 1) / 2;
+        
+        state.buttons[trIndex].value = rt;
+        state.buttons[trIndex].pressed = rt > 0.1;
+    }
+
     return state;
 }
 
@@ -122,23 +126,14 @@ function updateUI(data) {
         // Кнопки и Триггеры
         const buttonsList = document.getElementById('buttons-list');
         buttonsList.innerHTML = ''; 
-        
-        // Выводим триггеры
-        const tL = document.createElement('li');
-        tL.innerHTML = `<strong>TriggerL:</strong> ${data.axes.trigger_l > 0.1 ? '⚡️' : '💤'} (${data.axes.trigger_l.toFixed(2)})`;
-        buttonsList.appendChild(tL);
-        
-        const tR = document.createElement('li');
-        tR.innerHTML = `<strong>TriggerR:</strong> ${data.axes.trigger_r > 0.1 ? '⚡️' : '💤'} (${data.axes.trigger_r.toFixed(2)})`;
-        buttonsList.appendChild(tR);
 
-        // Выводим остальные кнопки
+        // Выводим все кнопки (Триггеры теперь снова здесь)
         data.buttons.forEach(button => {
-            // Пропускаем кнопки триггеров, так как мы вывели их выше из осей
-            if (button.name === 'TriggerL' || button.name === 'TriggerR') return;
-            
+            // Если это неизвестная кнопка и она не нажата - скрываем, чтобы не мусорить UI
+            if (button.name.startsWith('Unknown_') && !button.pressed) return;
+
             const li = document.createElement('li');
-            li.innerHTML = `<strong>${button.name}:</strong> ${button.pressed ? '⚡️' : '💤'}`;
+            li.innerHTML = `<strong>${button.name}:</strong> ${button.pressed ? '⚡️' : '💤'} (${button.value.toFixed(2)})`;
             buttonsList.appendChild(li);
         });
     } catch (e) {

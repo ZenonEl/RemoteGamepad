@@ -1,6 +1,7 @@
 import json
 import logging
 from contextlib import asynccontextmanager
+from pprint import pprint
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -60,11 +61,10 @@ async def websocket_endpoint(websocket: WebSocket):
             data = json.loads(data_text)
 
             # --- Обработка данных (Парсинг) ---
-            
-            # 1. Оси (Стики и Триггеры)
+            # 1. Оси (Стики)
             if "axes" in data:
                 axes = data["axes"]
-                print(axes)
+                
                 # Стики
                 if "left_stick" in axes:
                     gamepad.send_axis('AxisLx', axes["left_stick"]["x"])
@@ -72,23 +72,20 @@ async def websocket_endpoint(websocket: WebSocket):
                 if "right_stick" in axes:
                     gamepad.send_axis('AxisRx', axes["right_stick"]["x"])
                     gamepad.send_axis('AxisRy', axes["right_stick"]["y"])
-                    
-                # Триггеры
-                if "trigger_l" in axes:
-                    gamepad.send_axis('TriggerL', axes["trigger_l"])
-                if "trigger_r" in axes:
-                    gamepad.send_axis('TriggerR', axes["trigger_r"])
 
-            # 2. Обработка кнопок и D-Pad
+            # 2. Обработка кнопок, Триггеров и D-Pad
             if "buttons" in data:
                 dpad_state = {"up": False, "down": False, "left": False, "right": False}
                 
                 for btn in data["buttons"]:
-                    name = btn.get("name")
+                    name = btn.get("name", "Unknown")
+                    value = btn.get("value", 0)
                     pressed = btn.get("pressed", False)
-
-                    # Пропускаем триггеры, так как они теперь всегда обрабатываются как оси
-                    if name in ["TriggerL", "TriggerR"]:
+                    # ВОТ ОНО: Триггеры обрабатываются как оси ВНУТРИ списка кнопок
+                    if name in["TriggerL", "TriggerR"]:
+                        # Отправляем value, чтобы сработала старая конвертация (int(value * 255))
+                        print(name, value)
+                        gamepad.process_trigger_as_button(name, value)
                         continue
                     
                     # D-Pad -> Собираем состояние

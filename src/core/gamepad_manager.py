@@ -24,17 +24,25 @@ class VirtualGamepadDevice:
         self.created_at = time.time()
         
         # Настройка capabilities геймпада (наш виртуальный джойстик)
+        # ВАЖНО: Используем явные значения AbsInfo, как в старом рабочем коде,
+        # чтобы избежать проблем с дефолтными значениями fuzz/flat в ядре Linux.
         self.caps = {
             e.EV_KEY: list(BUTTON_MAP.values()),
             e.EV_ABS: [
-                (AXIS_MAP['AxisLx'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['AxisLx']], 0, 0, 0)),
-                (AXIS_MAP['AxisLy'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['AxisLy']], 0, 0, 0)),
-                (AXIS_MAP['AxisRx'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['AxisRx']], 0, 0, 0)),
-                (AXIS_MAP['AxisRy'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['AxisRy']], 0, 0, 0)),
-                (AXIS_MAP['TriggerL'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['TriggerL']], 0, 0, 0)),
-                (AXIS_MAP['TriggerR'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['TriggerR']], 0, 0, 0)),
-                (AXIS_MAP['DpadX'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['DpadX']], 0, 0, 0)),
-                (AXIS_MAP['DpadY'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['DpadY']], 0, 0, 0)),
+                # Стики (16-bit signed: -32768..32767)
+                (e.ABS_X, AbsInfo(value=0, min=-32768, max=32767, fuzz=0, flat=0, resolution=0)),
+                (e.ABS_Y, AbsInfo(value=0, min=-32768, max=32767, fuzz=0, flat=0, resolution=0)),
+                (e.ABS_RX, AbsInfo(value=0, min=-32768, max=32767, fuzz=0, flat=0, resolution=0)),
+                (e.ABS_RY, AbsInfo(value=0, min=-32768, max=32767, fuzz=0, flat=0, resolution=0)),
+                
+                # Триггеры (8-bit unsigned: 0..255)
+                # Критично: min=0, max=255.
+                (e.ABS_Z, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
+                (e.ABS_RZ, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
+                
+                # D-Pad (Hat switch: -1..1)
+                (e.ABS_HAT0X, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
+                (e.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
             ]
         }
     
@@ -89,8 +97,7 @@ class VirtualGamepadDevice:
             return
             
         axis_code = AXIS_MAP[axis_name]
-        print(axis_name)
-        print(axis_code)
+
         # Скалирование значения
         if axis_name in ['TriggerL', 'TriggerR']:
             # Триггеры: 0.0 до 1.0 -> 0 до 255
@@ -98,7 +105,7 @@ class VirtualGamepadDevice:
         else:
             # Стики: -1.0 до 1.0 -> -32768 до 32767
             scaled_value = int(value * 32767)
-        print(axis_code, scaled_value)
+
         self.device.write(e.EV_ABS, axis_code, scaled_value)
         self.device.syn()
 
@@ -106,11 +113,29 @@ class VirtualGamepadDevice:
         """Отправка события крестовины (D-Pad)"""
         if not self.device:
             return
-            
+
         self.device.write(e.EV_ABS, AXIS_MAP['DpadX'], x)
         self.device.write(e.EV_ABS, AXIS_MAP['DpadY'], y)
         self.device.syn()
 
+    def process_trigger_as_button(self, name: str, value) -> None:
+        """
+        ВОЗВРАЩЕНО ИЗ СТАРОГО КОДА:
+        Обработка триггеров (L2/R2) ВНУТРИ логики кнопок.
+        """
+        if not self.device:
+            return
+        trigger_code = e.ABS_Z if name == "TriggerL" else e.ABS_RZ
+        
+        # Конвертируем булево значение или число в 0-255
+        if isinstance(value, bool):
+            trigger_value = 255 if value else 0
+        else:
+            trigger_value = int(float(value) * 255)
+        
+        print(f"Processing trigger {name} as axis: value={value} -> {trigger_value}")
+        self.device.write(e.EV_ABS, trigger_code, trigger_value)
+        self.device.syn()
 
 class GamepadManager:
     """Оркестратор виртуальных геймпадов (KISS - пока поддерживаем 1 геймпад)"""
