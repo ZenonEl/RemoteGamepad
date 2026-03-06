@@ -48,11 +48,28 @@ function getGamepadState() {
 
     if (!gp) return null;
 
+    // Извлечение триггеров (L2/R2)
+    // На некоторых геймпадах (как у вас) они висят на осях 4 и 5 со значением от -1 до 1.
+    // На стандартном HTML5 API они висят на кнопках 6 и 7.
+    let lt = 0;
+    let rt = 0;
+    
+    if (gp.axes.length >= 6) {
+        // Конвертируем из [-1, 1] в [0, 1]
+        lt = (gp.axes[4] + 1) / 2;
+        rt = (gp.axes[5] + 1) / 2;
+    } else {
+        lt = gp.buttons[6]?.value || 0;
+        rt = gp.buttons[7]?.value || 0;
+    }
+
     // Формируем чистый объект данных
     const state = {
         axes: {
-            left_stick: { x: gp.axes[0], y: gp.axes[1] },
-            right_stick: { x: gp.axes[2], y: gp.axes[3] }
+            left_stick: { x: gp.axes[0] || 0, y: gp.axes[1] || 0 },
+            right_stick: { x: gp.axes[2] || 0, y: gp.axes[3] || 0 },
+            trigger_l: lt,
+            trigger_r: rt
         },
         buttons: gp.buttons.map((btn, idx) => ({
             name: buttonMap[idx] || `Unknown_${idx}`,
@@ -70,15 +87,14 @@ function gameLoop() {
     const state = getGamepadState();
     if (state) {
         // Оптимизация: отправляем только если данные изменились
-        // (JSON.stringify быстрый для небольших объектов)
         const stateJSON = JSON.stringify(state);
         
         if (stateJSON !== lastStateJSON) {
             socket.send(stateJSON);
             lastStateJSON = stateJSON;
             
-            // Обновляем UI (опционально, можно реже для экономии ресурсов)
-            requestAnimationFrame(() => updateUI(state));
+            // Обновляем UI
+            updateUI(state);
         }
     }
     
@@ -89,41 +105,46 @@ function startLoop() {
     gameLoop();
 }
 
-// Простой UI апдейтер (чтобы видеть что работает)
+// Полноценный UI апдейтер
 function updateUI(data) {
     try {
+        // Оси
         document.getElementById('left-stick-x').textContent = data.axes.left_stick.x.toFixed(2);
         document.getElementById('left-stick-y').textContent = data.axes.left_stick.y.toFixed(2);
-    } catch (e) {}
+        document.getElementById('right-stick-x').textContent = data.axes.right_stick.x.toFixed(2);
+        document.getElementById('right-stick-y').textContent = data.axes.right_stick.y.toFixed(2);
+
+        // Кнопки и Триггеры
+        const buttonsList = document.getElementById('buttons-list');
+        buttonsList.innerHTML = ''; 
+        
+        // Выводим триггеры
+        const tL = document.createElement('li');
+        tL.innerHTML = `<strong>TriggerL:</strong> ${data.axes.trigger_l > 0.1 ? '⚡️' : '💤'} (${data.axes.trigger_l.toFixed(2)})`;
+        buttonsList.appendChild(tL);
+        
+        const tR = document.createElement('li');
+        tR.innerHTML = `<strong>TriggerR:</strong> ${data.axes.trigger_r > 0.1 ? '⚡️' : '💤'} (${data.axes.trigger_r.toFixed(2)})`;
+        buttonsList.appendChild(tR);
+
+        // Выводим остальные кнопки
+        data.buttons.forEach(button => {
+            // Пропускаем кнопки триггеров, так как мы вывели их выше из осей
+            if (button.name === 'TriggerL' || button.name === 'TriggerR') return;
+            
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${button.name}:</strong> ${button.pressed ? '⚡️' : '💤'}`;
+            buttonsList.appendChild(li);
+        });
+    } catch (e) {
+        console.error("UI Update Error:", e);
+    }
 }
 
 // Запуск при загрузке
 window.addEventListener('load', () => {
     connectWebSocket();
 });
-
-// Используем requestAnimationFrame для проверки изменений
-function update() {
-    checkForChanges();
-    requestAnimationFrame(update);
-}
-
-// Обновление данных джойстика на странице
-function updateJoystickData(data) {
-    document.getElementById('left-stick-x').textContent = data.axes.left_stick.x.toFixed(2);
-    document.getElementById('left-stick-y').textContent = data.axes.left_stick.y.toFixed(2);
-    document.getElementById('right-stick-x').textContent = data.axes.right_stick.x.toFixed(2);
-    document.getElementById('right-stick-y').textContent = data.axes.right_stick.y.toFixed(2);
-
-    const buttonsList = document.getElementById('buttons-list');
-    buttonsList.innerHTML = ''; // Очищаем список кнопок
-
-    data.buttons.forEach(button => {
-        const li = document.createElement('li');
-        li.textContent = `${button.name} ${button.pressed ? '⚡️' : '💤'} (${button.value.toFixed(2)})`;
-        buttonsList.appendChild(li);
-    });
-}
 
 // ================== Система тем ==================
 const themeToggle = document.getElementById('theme-toggle');

@@ -5,8 +5,7 @@ import socket
 import qrcode
 from loguru import logger
 
-# Простая конфигурация
-PORT = 5002
+from src.config import PORT, EXTERNAL_URL
 
 def get_local_ip():
     """Получает локальный IP адрес машины в сети"""
@@ -34,20 +33,31 @@ if __name__ == "__main__":
             logger.warning("⚠️  Нет прав записи в /dev/uinput! Геймпад может не создаться.")
             logger.warning("👉 Запустите: sudo bash scripts/setup_udev.sh")
 
-        # 2. Получение IP и генерация ссылки
+        # 2. Рисуем локальный QR
         local_ip = get_local_ip()
-        url = f"http://{local_ip}:{PORT}"
+        local_url = f"http://{local_ip}:{PORT}"
         
-        print("\n" + "="*40)
-        print(f"🎮 RemoteGamepad готов к работе!")
-        print(f"🔗 Откройте на телефоне: {url}")
-        print("="*40 + "\n")
-        
-        # 3. Рисуем QR
+        print("\n" + "="*50)
+        print(f"🏠 ЛОКАЛЬНАЯ СЕТЬ (Wi-Fi)")
+        print(f"🔗 Откройте: {local_url}")
+        print("="*50)
         try:
-            print_qr(url)
+            print_qr(local_url)
         except Exception:
-            logger.warning("Не удалось отрисовать QR-код (возможно, шрифт терминала не поддерживает)")
+            logger.warning("Не удалось отрисовать локальный QR-код")
+
+        # 3. Рисуем внешний QR (если есть туннель)
+        if EXTERNAL_URL:
+            print("\n" + "="*50)
+            print(f"🌍 ВНЕШНЯЯ СЕТЬ (zrok / ngrok)")
+            print(f"🔗 Откройте: {EXTERNAL_URL}")
+            print("="*50)
+            try:
+                print_qr(EXTERNAL_URL)
+            except Exception:
+                logger.warning("Не удалось отрисовать внешний QR-код")
+                
+        print("\n🎮 Сервер запущен. Ожидание подключений...\n")
 
         # 4. Запуск сервера
         uvicorn.run("src.api.server:app", host="0.0.0.0", port=PORT, log_level="warning")

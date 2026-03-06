@@ -8,8 +8,8 @@ from evdev import ecodes as e
 BUTTON_MAP = {
     "BtnA": e.BTN_SOUTH,
     "BtnB": e.BTN_EAST,
-    "BtnX": e.BTN_NORTH,
-    "BtnY": e.BTN_WEST,
+    "BtnX": e.BTN_WEST,
+    "BtnY": e.BTN_NORTH,
     "BtnBack": e.BTN_SELECT,
     "BtnStart": e.BTN_START,
     "BtnThumbL": e.BTN_THUMBL,

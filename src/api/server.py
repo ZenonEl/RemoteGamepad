@@ -61,35 +61,38 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # --- Обработка данных (Парсинг) ---
             
-            # 1. Оси (Стики)
+            # 1. Оси (Стики и Триггеры)
             if "axes" in data:
                 axes = data["axes"]
-                # Левый стик
+                
+                # Стики
                 if "left_stick" in axes:
                     gamepad.send_axis('AxisLx', axes["left_stick"]["x"])
-                    gamepad.send_axis('AxisLy', axes["left_stick"]["y"]) # Инверсия Y обычно на клиенте или тут
-                
-                # Правый стик
+                    gamepad.send_axis('AxisLy', axes["left_stick"]["y"])
                 if "right_stick" in axes:
                     gamepad.send_axis('AxisRx', axes["right_stick"]["x"])
                     gamepad.send_axis('AxisRy', axes["right_stick"]["y"])
+                    
+                # Триггеры
+                if "trigger_l" in axes:
+                    gamepad.send_axis('TriggerL', axes["trigger_l"])
+                if "trigger_r" in axes:
+                    gamepad.send_axis('TriggerR', axes["trigger_r"])
 
             # 2. Обработка кнопок и D-Pad
             if "buttons" in data:
-                # Временное хранилище для D-pad, чтобы собрать 4 кнопки в 2 оси
                 dpad_state = {"up": False, "down": False, "left": False, "right": False}
                 
                 for btn in data["buttons"]:
                     name = btn.get("name")
-                    value = btn.get("value", 0)
                     pressed = btn.get("pressed", False)
 
-                    # Триггеры (L2/R2) -> Оси
+                    # Пропускаем триггеры, так как они теперь всегда обрабатываются как оси
                     if name in ["TriggerL", "TriggerR"]:
-                        gamepad.send_axis(name, value)
+                        continue
                     
                     # D-Pad -> Собираем состояние
-                    elif name == "Dpad_Up": dpad_state["up"] = pressed
+                    if name == "Dpad_Up": dpad_state["up"] = pressed
                     elif name == "Dpad_Down": dpad_state["down"] = pressed
                     elif name == "Dpad_Left": dpad_state["left"] = pressed
                     elif name == "Dpad_Right": dpad_state["right"] = pressed
