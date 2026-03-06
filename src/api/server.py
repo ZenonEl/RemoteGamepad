@@ -74,29 +74,37 @@ async def websocket_endpoint(websocket: WebSocket):
                     gamepad.send_axis('AxisRx', axes["right_stick"]["x"])
                     gamepad.send_axis('AxisRy', axes["right_stick"]["y"])
 
-            # 2. Кнопки и Триггеры
+            # 2. Обработка кнопок и D-Pad
             if "buttons" in data:
+                # Временное хранилище для D-pad, чтобы собрать 4 кнопки в 2 оси
+                dpad_state = {"up": False, "down": False, "left": False, "right": False}
+                
                 for btn in data["buttons"]:
                     name = btn.get("name")
                     value = btn.get("value", 0)
                     pressed = btn.get("pressed", False)
 
-                    # Триггеры (L2/R2) - это оси, а не кнопки
+                    # Триггеры (L2/R2) -> Оси
                     if name in ["TriggerL", "TriggerR"]:
                         gamepad.send_axis(name, value)
                     
-                    # Крестовина (D-Pad) - часто приходит как кнопки, но в Linux это ось HAT
-                    elif name.startswith("Dpad"):
-                        # Логику D-pad лучше считать на клиенте или тут собрать состояние
-                        # Для KISS пока пропустим сложную логику Dpad, если она не критична,
-                        # или добавим позже. В старом коде это работало через button events.
-                        # Если Dpad приходит как кнопка (0/1), можно сэмулировать нажатие.
-                        # Но в mapping_config у нас DpadX/Y.
-                        pass # TODO: Реализовать D-pad логику если потребуется
+                    # D-Pad -> Собираем состояние
+                    elif name == "Dpad_Up": dpad_state["up"] = pressed
+                    elif name == "Dpad_Down": dpad_state["down"] = pressed
+                    elif name == "Dpad_Left": dpad_state["left"] = pressed
+                    elif name == "Dpad_Right": dpad_state["right"] = pressed
                         
+                    # Обычные кнопки (A, B, Start, Mode и т.д.)
                     else:
-                        # Обычные кнопки (A, B, X, Y, Start, Back...)
                         gamepad.send_button(name, pressed)
+                
+                # 3. Вычисляем и отправляем D-Pad (HAT)
+                # X: -1 (Left), 1 (Right), 0 (None)
+                hat_x = -1 if dpad_state["left"] else (1 if dpad_state["right"] else 0)
+                # Y: -1 (Up), 1 (Down), 0 (None) - В Linux Y инвертирован относительно экрана (обычно -1 это вверх)
+                hat_y = -1 if dpad_state["up"] else (1 if dpad_state["down"] else 0)
+                
+                gamepad.send_dpad(hat_x, hat_y)
 
     except WebSocketDisconnect:
         logger.info(f"🔌 Client disconnected: {client_ip}")
