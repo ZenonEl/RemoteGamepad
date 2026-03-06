@@ -41,16 +41,19 @@ class VirtualGamepadDevice:
     def create(self) -> bool:
         """Создание виртуального устройства в системе"""
         try:
-            # Маскируемся под Xbox 360 Controller для лучшей совместимости в Steam/Linux
+            # ВАЖНО: Имя устройства должно быть СТРОГО 'Microsoft X-Box 360 pad'.
+            # Многие игры, тестеры и библиотеки (в т.ч. SDL2/Steam) определяют
+            # возможности геймпада по его имени! Если имя другое, они используют
+            # "generic" профиль, игнорируют триггеры (оси Z/RZ) и путают местами X/Y.
             self.device = UInput(
                 self.caps,
-                name=self.name,
+                name='Microsoft X-Box 360 pad',  
                 vendor=0x045e,   
                 product=0x028e,  
                 version=0x0110,
                 bustype=e.BUS_USB
             )
-            logger.info(f"✅ Создан виртуальный геймпад: {self.name}")
+            logger.info(f"✅ Создан виртуальный геймпад: {self.name} (как Xbox 360)")
             return True
         except PermissionError:
             logger.error("❌ Нет прав доступа к /dev/uinput! Запустите скрипт scripts/setup_udev.sh")
@@ -95,7 +98,7 @@ class VirtualGamepadDevice:
         else:
             # Стики: -1.0 до 1.0 -> -32768 до 32767
             scaled_value = int(value * 32767)
-            
+        print(axis_code, scaled_value)
         self.device.write(e.EV_ABS, axis_code, scaled_value)
         self.device.syn()
 
