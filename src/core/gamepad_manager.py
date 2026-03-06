@@ -1,16 +1,15 @@
 """
-Менеджер виртуальных геймпадов на базе evdev
+Менеджер виртуальных геймпадов на базе evdev.
+Отвечает за трансляцию событий в ядро Linux.
 """
 import asyncio
 import logging
-from typing import Dict, Optional, List
+from typing import Dict, Optional
 import time
 
 from evdev import UInput, AbsInfo, ecodes as e
 
-from ..utils.types import GamepadEvent, GamepadManager as IGamepadManager
-from ..core.events import EventBus
-from ..config.settings import settings
+from .mapping_config import BUTTON_MAP, AXIS_MAP, AXIS_LIMITS
 
 logger = logging.getLogger(__name__)
 
@@ -24,283 +23,123 @@ class VirtualGamepadDevice:
         self.device: Optional[UInput] = None
         self.created_at = time.time()
         
-        # Настройка capabilities геймпада
+        # Настройка capabilities геймпада (наш виртуальный джойстик)
         self.caps = {
-            e.EV_KEY: [
-                e.BTN_SOUTH,  # A
-                e.BTN_EAST,   # B  
-                e.BTN_NORTH,  # Y
-                e.BTN_WEST,   # X
-                e.BTN_TL,     # LB
-                e.BTN_TR,     # RB
-                e.BTN_SELECT, # Back
-                e.BTN_START,  # Start
-                e.BTN_MODE,   # Guide
-                e.BTN_THUMBL, # Left Stick
-                e.BTN_THUMBR, # Right Stick
-            ],
+            e.EV_KEY: list(BUTTON_MAP.values()),
             e.EV_ABS: [
-                # Левый стик
-                (e.ABS_X, AbsInfo(0, -32768, 32767, 0, 0, 0)),
-                (e.ABS_Y, AbsInfo(0, -32768, 32767, 0, 0, 0)),
-                # Правый стик  
-                (e.ABS_RX, AbsInfo(0, -32768, 32767, 0, 0, 0)),
-                (e.ABS_RY, AbsInfo(0, -32768, 32767, 0, 0, 0)),
-                # Триггеры
-                (e.ABS_Z, AbsInfo(0, 0, 255, 0, 0, 0)),    # LT
-                (e.ABS_RZ, AbsInfo(0, 0, 255, 0, 0, 0)),   # RT
-                # D-Pad
-                (e.ABS_HAT0X, AbsInfo(0, -1, 1, 0, 0, 0)),
-                (e.ABS_HAT0Y, AbsInfo(0, -1, 1, 0, 0, 0)),
+                (AXIS_MAP['AxisLx'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['AxisLx']], 0, 0, 0)),
+                (AXIS_MAP['AxisLy'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['AxisLy']], 0, 0, 0)),
+                (AXIS_MAP['AxisRx'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['AxisRx']], 0, 0, 0)),
+                (AXIS_MAP['AxisRy'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['AxisRy']], 0, 0, 0)),
+                (AXIS_MAP['TriggerL'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['TriggerL']], 0, 0, 0)),
+                (AXIS_MAP['TriggerR'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['TriggerR']], 0, 0, 0)),
+                (AXIS_MAP['DpadX'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['DpadX']], 0, 0, 0)),
+                (AXIS_MAP['DpadY'], AbsInfo(0, *AXIS_LIMITS[AXIS_MAP['DpadY']], 0, 0, 0)),
             ]
         }
-        
-        # Состояние D-Pad
-        self.dpad_state = {'x': 0, 'y': 0}
-        
-        logger.debug(f"VirtualGamepad {self.gamepad_id} configured")
     
-    async def create(self) -> bool:
-        """Создание виртуального устройства"""
+    def create(self) -> bool:
+        """Создание виртуального устройства в системе"""
         try:
+            # Маскируемся под Xbox 360 Controller для лучшей совместимости в Steam/Linux
             self.device = UInput(
                 self.caps,
                 name=self.name,
-                vendor=0x045e,   # Microsoft
-                product=0x028e,  # Xbox 360 Controller
+                vendor=0x045e,   
+                product=0x028e,  
                 version=0x0110,
                 bustype=e.BUS_USB
             )
-            logger.info(f"Virtual gamepad {self.gamepad_id} created: {self.name}")
+            logger.info(f"✅ Создан виртуальный геймпад: {self.name}")
             return True
-            
+        except PermissionError:
+            logger.error("❌ Нет прав доступа к /dev/uinput! Запустите скрипт scripts/setup_udev.sh")
+            return False
         except Exception as ex:
-            logger.error(f"Failed to create gamepad {self.gamepad_id}: {ex}")
+            logger.error(f"❌ Ошибка создания геймпада {self.gamepad_id}: {ex}")
             return False
     
-    async def destroy(self) -> None:
-        """Уничтожение виртуального устройства"""
+    def destroy(self) -> None:
+        """Удаление виртуального устройства"""
         if self.device:
             try:
                 self.device.close()
-                logger.info(f"Virtual gamepad {self.gamepad_id} destroyed")
+                logger.info(f"🗑️ Геймпад {self.name} отключен")
             except Exception as ex:
-                logger.error(f"Error destroying gamepad {self.gamepad_id}: {ex}")
+                logger.error(f"Ошибка при удалении геймпада {self.name}: {ex}")
             finally:
                 self.device = None
     
-    async def send_button_event(self, button_code: int, value: int) -> None:
+    def send_button(self, button_name: str, is_pressed: bool) -> None:
         """Отправка события кнопки"""
-        if not self.device:
+        if not self.device or button_name not in BUTTON_MAP:
             return
             
-        try:
-            self.device.write(e.EV_KEY, button_code, value)
-            self.device.syn()
-            logger.debug(f"Gamepad {self.gamepad_id}: button {button_code} = {value}")
-        except Exception as ex:
-            logger.error(f"Error sending button event: {ex}")
+        btn_code = BUTTON_MAP[button_name]
+        value = 1 if is_pressed else 0
+        self.device.write(e.EV_KEY, btn_code, value)
+        self.device.syn()
     
-    async def send_axis_event(self, axis_code: int, value: int) -> None:
-        """Отправка события оси"""
+    def send_axis(self, axis_name: str, value: float) -> None:
+        """Отправка события оси со скалированием (0.0..1.0 -> -32768..32767)"""
+        if not self.device or axis_name not in AXIS_MAP:
+            return
+            
+        axis_code = AXIS_MAP[axis_name]
+        
+        # Скалирование значения
+        if axis_name in ['TriggerL', 'TriggerR']:
+            # Триггеры: 0.0 до 1.0 -> 0 до 255
+            scaled_value = int(value * 255)
+        else:
+            # Стики: -1.0 до 1.0 -> -32768 до 32767
+            scaled_value = int(value * 32767)
+            
+        self.device.write(e.EV_ABS, axis_code, scaled_value)
+        self.device.syn()
+
+    def send_dpad(self, x: int, y: int) -> None:
+        """Отправка события крестовины (D-Pad)"""
         if not self.device:
             return
             
-        try:
-            self.device.write(e.EV_ABS, axis_code, value)
-            self.device.syn()
-            logger.debug(f"Gamepad {self.gamepad_id}: axis {axis_code} = {value}")
-        except Exception as ex:
-            logger.error(f"Error sending axis event: {ex}")
-    
-    async def send_dpad_event(self, x: int, y: int) -> None:
-        """Отправка события D-Pad"""
-        if not self.device:
-            return
-            
-        try:
-            self.device.write(e.EV_ABS, e.ABS_HAT0X, x)
-            self.device.write(e.EV_ABS, e.ABS_HAT0Y, y)
-            self.device.syn()
-            
-            self.dpad_state['x'] = x
-            self.dpad_state['y'] = y
-            
-            logger.debug(f"Gamepad {self.gamepad_id}: dpad ({x}, {y})")
-        except Exception as ex:
-            logger.error(f"Error sending dpad event: {ex}")
+        self.device.write(e.EV_ABS, AXIS_MAP['DpadX'], x)
+        self.device.write(e.EV_ABS, AXIS_MAP['DpadY'], y)
+        self.device.syn()
 
 
-class GamepadManagerImpl(IGamepadManager):
-    """Реализация менеджера виртуальных геймпадов"""
+class GamepadManager:
+    """Оркестратор виртуальных геймпадов (KISS - пока поддерживаем 1 геймпад)"""
     
-    def __init__(self, event_bus: EventBus):
-        self._gamepads: Dict[int, VirtualGamepadDevice] = {}
-        self._client_gamepad_map: Dict[str, int] = {}
-        self._event_bus = event_bus
-        self._next_gamepad_id = 1
+    def __init__(self):
+        self.gamepad: Optional[VirtualGamepadDevice] = None
         self._lock = asyncio.Lock()
-        
-        # Маппинг кнопок
-        self._button_map = {
-            "BtnA": e.BTN_SOUTH,
-            "BtnB": e.BTN_EAST,
-            "BtnX": e.BTN_NORTH, 
-            "BtnY": e.BTN_WEST,
-            "BtnBack": e.BTN_SELECT,
-            "BtnStart": e.BTN_START,
-            "BtnThumbL": e.BTN_THUMBL,
-            "BtnThumbR": e.BTN_THUMBR,
-            "BtnShoulderL": e.BTN_TL,
-            "BtnShoulderR": e.BTN_TR,
-        }
-        
-        # Маппинг осей
-        self._axis_map = {
-            'AxisLx': e.ABS_X,
-            'AxisLy': e.ABS_Y,
-            'AxisRx': e.ABS_RX,
-            'AxisRy': e.ABS_RY,
-            'TriggerL': e.ABS_Z,
-            'TriggerR': e.ABS_RZ
-        }
-        
-        logger.info("GamepadManager initialized")
+        logger.info("GamepadManager инициализирован")
     
-    async def create_gamepad(self, client_id: str) -> Optional[int]:
-        """Создание виртуального геймпада для клиента"""
+    async def create_gamepad(self, client_id: str) -> bool:
+        """Создает геймпад для клиента (если его еще нет)"""
         async with self._lock:
-            # Проверяем, есть ли уже геймпад для этого клиента
-            if client_id in self._client_gamepad_map:
-                return self._client_gamepad_map[client_id]
-            
-            # Проверяем лимит геймпадов
-            if len(self._gamepads) >= settings.max_gamepads:
-                logger.warning(f"Cannot create gamepad for {client_id}: limit reached")
-                return None
-            
-            # Создаем новый геймпад
-            gamepad_id = self._next_gamepad_id
-            self._next_gamepad_id += 1
-            
-            gamepad = VirtualGamepadDevice(
-                gamepad_id, 
-                settings.gamepad_name_template.format(id=gamepad_id)
-            )
-            
-            if await gamepad.create():
-                self._gamepads[gamepad_id] = gamepad
-                self._client_gamepad_map[client_id] = gamepad_id
+            if self.gamepad is not None:
+                # Геймпад уже создан, переиспользуем (KISS)
+                return True
                 
-                logger.info(f"Created gamepad {gamepad_id} for client {client_id}")
-                return gamepad_id
+            gamepad = VirtualGamepadDevice(gamepad_id=1, name="RemoteGamepad")
+            if gamepad.create():
+                self.gamepad = gamepad
+                return True
+            return False
             
-            return None
-    
-    async def remove_gamepad(self, gamepad_id: int) -> bool:
-        """Удаление виртуального геймпада"""
+    async def remove_gamepad(self) -> None:
+        """Удаляет активный геймпад"""
         async with self._lock:
-            if gamepad_id not in self._gamepads:
-                return False
-            
-            gamepad = self._gamepads[gamepad_id]
-            await gamepad.destroy()
-            
-            # Удаляем из мапинга клиентов
-            client_to_remove = None
-            for client_id, gpad_id in self._client_gamepad_map.items():
-                if gpad_id == gamepad_id:
-                    client_to_remove = client_id
-                    break
-            
-            if client_to_remove:
-                del self._client_gamepad_map[client_to_remove]
-            
-            del self._gamepads[gamepad_id]
-            
-            logger.info(f"Removed gamepad {gamepad_id}")
-            return True
-    
-    async def send_event(self, gamepad_id: int, event: GamepadEvent) -> None:
-        """Отправка события в виртуальный геймпад"""
-        async with self._lock:
-            if gamepad_id not in self._gamepads:
-                logger.warning(f"Gamepad {gamepad_id} not found")
-                return
-            
-            gamepad = self._gamepads[gamepad_id]
-            
-            if event.event_type.value == "button_press" or event.event_type.value == "button_release":
-                if event.button_code and event.button_code in self._button_map:
-                    button_evdev_code = self._button_map[event.button_code]
-                    value = 1 if event.event_type.value == "button_press" else 0
-                    await gamepad.send_button_event(button_evdev_code, value)
-            
-            elif event.event_type.value == "axis_move":
-                if event.axis_name and event.axis_name in self._axis_map:
-                    axis_evdev_code = self._axis_map[event.axis_name]
-                    
-                    # Специальная обработка для триггеров
-                    if event.axis_name in ['TriggerL', 'TriggerR']:
-                        # Триггеры: конвертируем булево значение в 0-255
-                        if isinstance(event.value, bool):
-                            scaled_value = 255 if event.value else 0
-                        else:
-                            # Если пришло число 0.0-1.0, конвертируем в 0-255
-                            scaled_value = int(event.value * 255)
-                        
-                        await gamepad.send_axis_event(axis_evdev_code, scaled_value)
-                    else:
-                        # Обычные оси (стики): конвертируем в диапазон -32768 до 32767
-                        scaled_value = int(event.value * 32767)
-                        await gamepad.send_axis_event(axis_evdev_code, scaled_value)
-            
-            elif event.event_type.value == "dpad":
-                # D-Pad события
-                if hasattr(event, 'value_x') and hasattr(event, 'value_y'):
-                    await gamepad.send_dpad_event(event.value_x, event.value_y)
-                else:
-                    logger.warning(f"Gamepad {gamepad_id}: D-PAD event missing coordinates")
-    
-    async def get_gamepad_for_client(self, client_id: str) -> Optional[int]:
-        """Получение ID геймпада для клиента"""
-        async with self._lock:
-            return self._client_gamepad_map.get(client_id)
-    
-    async def get_gamepad_count(self) -> int:
-        """Получение количества активных геймпадов"""
-        async with self._lock:
-            return len(self._gamepads)
-    
-    async def get_gamepad_info(self) -> List[Dict]:
-        """Получение информации о всех геймпадах"""
-        async with self._lock:
-            info = []
-            for gamepad_id, gamepad in self._gamepads.items():
-                # Находим клиента для этого геймпада
-                client_id = None
-                for cid, gid in self._client_gamepad_map.items():
-                    if gid == gamepad_id:
-                        client_id = cid
-                        break
-                
-                info.append({
-                    "gamepad_id": gamepad_id,
-                    "name": gamepad.name,
-                    "client_id": client_id,
-                    "created_at": gamepad.created_at,
-                    "device_path": getattr(gamepad.device, 'device', None) if gamepad.device else None
-                })
-            
-            return info
-    
+            if self.gamepad:
+                self.gamepad.destroy()
+                self.gamepad = None
+
+    async def get_active_gamepad(self) -> Optional[VirtualGamepadDevice]:
+        """Возвращает текущий геймпад"""
+        return self.gamepad
+
     async def cleanup(self) -> None:
-        """Очистка всех геймпадов"""
-        async with self._lock:
-            for gamepad in self._gamepads.values():
-                await gamepad.destroy()
-            
-            self._gamepads.clear()
-            self._client_gamepad_map.clear()
-            
-            logger.info("All gamepads cleaned up")
+        """Очистка при завершении работы сервера"""
+        await self.remove_gamepad()
