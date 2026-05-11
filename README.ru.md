@@ -145,7 +145,6 @@ GPL-3.0 — см. [LICENSE](LICENSE).
 ## 📞 Контакты
 
 - GitHub: **[@ZenonEl](https://github.com/ZenonEl)**
-- Mastodon: **[@ZenonEl@mastodon.ml](https://mastodon.ml/@ZenonEl)**
 
 ---
 
