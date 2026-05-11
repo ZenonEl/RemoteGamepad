@@ -8,8 +8,8 @@ from evdev import ecodes as e
 BUTTON_MAP = {
     "BtnA": e.BTN_SOUTH,
     "BtnB": e.BTN_EAST,
-    "BtnX": e.BTN_WEST,
-    "BtnY": e.BTN_NORTH,
+    "BtnX": e.BTN_NORTH,
+    "BtnY": e.BTN_WEST,
     "BtnBack": e.BTN_SELECT,
     "BtnStart": e.BTN_START,
     "BtnThumbL": e.BTN_THUMBL,
@@ -17,7 +17,6 @@ BUTTON_MAP = {
     "BtnShoulderL": e.BTN_TL,
     "BtnShoulderR": e.BTN_TR,
     "BtnMode": e.BTN_MODE,
-    # 🔧 ДОБАВЛЕНО: Триггеры как кнопки (для совместимости с тестерами)
     "TriggerL": e.BTN_TL2,
     "TriggerR": e.BTN_TR2,
 }
