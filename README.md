@@ -1,159 +1,154 @@
 # 🎮 RemoteGamepad
 
-[![License](https://img.shields.io/badge/license-GPL%203-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-beta-green.svg)](https://github.com/ZenonEl/RemoteGamepad/releases)
-[![Python](https://img.shields.io/badge/python-3.13.5+-blue.svg)](https://python.org)
-[![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](https://github.com/ZenonEl/RemoteGamepad)
-[![Language](https://img.shields.io/badge/language-EN%20%7C%20RU-blue.svg)](README.ru.md)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.13+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Platform](https://img.shields.io/badge/platform-Linux-FCC624.svg?logo=linux&logoColor=black)](#)
+[![Lang](https://img.shields.io/badge/lang-EN%20%7C%20RU-success.svg)](README.ru.md)
 
-> **Transform your smartphone into a wireless gamepad for your PC!** 🚀
+> Turn your smartphone into a wireless Xbox 360 gamepad for Linux PC games.
 
-RemoteGamepad is an innovative application that allows you to use your smartphone as a wireless gamepad controller. It creates a virtual joystick on your PC that receives real-time input from your mobile device through a web interface.
+RemoteGamepad bridges a phone's browser to a virtual Xbox 360 controller on Linux. The phone reads input via the **Web Gamepad API**, streams it over **WebSocket** to a **FastAPI** server, and the server emits real `evdev` events into `/dev/uinput`. Games on the PC see a standard Xbox 360 pad — no game-side modifications needed.
 
-**Perfect for situations where you can't connect a gamepad directly to your PC** - whether due to hardware limitations, driver issues, or simply wanting to use your mobile device as a controller. This project provides a seamless solution for wireless gamepad control.
+**Niche it solves:** situations where a controller won't connect directly to the PC (missing drivers, Bluetooth pairing issues, hardware quirks) but the phone *can* see it. Or no physical pad at all — drive the virtual one with the on-screen touch UI.
 
-## ✨ Features
+---
 
-- 🎯 **Real-time Control**: Instant response with minimal latency
-- 🌐 **Web-based Interface**: Works in any modern browser
-- 📱 **Cross-platform**: Android, iOS, and desktop browsers supported
-- 🎮 **Full Basic Gamepad Support**: Buttons, analog sticks, triggers, and D-pad
-- 🔌 **Virtual Device**: Creates a virtual Xbox 360 controller on your PC
-- 🎨 **Modern UI**: Beautiful, responsive web interface
-- 🌍 **Multi-language**: English and Russian support
-- 🔒 **Secure**: Local network communication only
+## ✨ What's worth a look
 
-## 🚀 Quick Start
+- **Faithful Xbox 360 impersonation.** The virtual device registers in the kernel as `Microsoft X-Box 360 pad` with the genuine vendor/product IDs (`0x045e:0x028e`). Steam, SDL2 and in-game mapping libraries automatically pick the proper Xbox profile instead of falling back to a generic pad with broken triggers.
+- **Triggers behave as axes *and* buttons.** `LT/RT` are sent both as `ABS_Z`/`ABS_RZ` axes (0–255) and as `BTN_TL2`/`BTN_TR2` button events (button threshold > 25/255). Different testers and games read different forms — this hits both.
+- **Async over a single WebSocket.** One `/ws` endpoint, one JSON frame carrying sticks + buttons + D-pad. Latency on a LAN is dominated by the radio link, not the server.
+- **Console QR codes.** On startup `main.py` prints an ASCII QR for the LAN URL. If `EXTERNAL_URL` is set (zrok / ngrok / any tunnel), a second QR for the public address is printed alongside. Aim the camera, the UI opens, play.
+- **Explicit `AbsInfo`.** Sticks are 16-bit signed (`-32768..32767`), triggers 8-bit unsigned (`0..255`), D-pad is a hat switch (`-1..1`), `fuzz` and `flat` are zero. Sidesteps the floating dead zones you get from kernel defaults that vary across distros.
+
+## 🛠 Tech stack
+
+| Layer | Technology |
+|---|---|
+| HTTP / WebSocket server | **FastAPI** + `uvicorn[standard]` (async/await) |
+| Virtual gamepad | **python-evdev** → `/dev/uinput` |
+| Frontend | Web Gamepad API + **HTMX** + Materialize CSS |
+| Templates | Jinja2 (`templates/index.html`) |
+| Config | `.env` (PORT, EXTERNAL_URL) |
+| Logging | **Loguru** |
+| QR | `qrcode[pil]` — ASCII console output |
+| i18n | `lang/{en,ru}.json` + HTMX language switcher |
+| Dependency manager | **uv** (`pyproject.toml` + `uv.lock`) |
+| Language | Python 3.13 |
+| License | GPL-3.0 |
+
+## 🏗 Architecture
+
+```
+┌──────────────┐  USB/BT/OTG ┌──────────┐ WebSocket  ┌─────────────┐  evdev   ┌────────┐
+│  Physical    │ ──────────▶ │  Phone   │ ─────────▶ │   FastAPI   │ ───────▶ │ Linux  │
+│  controller  │             │ (Browser │  JSON over │  /ws + /    │  uinput  │ kernel │
+│   (opt.)     │             │  Gamepad │  local WiFi│  (uvicorn)  │          │        │
+└──────────────┘             │   API)   │            └─────────────┘          └────┬───┘
+                             └──────────┘                                          │
+                                  ▲                                                ▼
+                                  │ touch UI                                ┌─────────────┐
+                                  │ (no physical                            │   Any game  │
+                                  │  pad case)                              │ (SDL2/Steam)│
+                                                                            └─────────────┘
+```
+
+1. Phone collects input — either from a physical pad via `navigator.getGamepads()`, or via the on-screen touch UI.
+2. The client serialises `{axes, buttons}` to JSON and pushes it through an open WebSocket.
+3. FastAPI demultiplexes: axes → `EV_ABS`, buttons → `EV_KEY`, D-pad → hat axes.
+4. evdev writes to `/dev/uinput`; the Linux kernel exposes a real input device.
+5. Games see a regular Xbox 360 controller.
+
+## 🚀 Quick start
 
 ### Prerequisites
 
-- **PC**: Linux
-- **Python 3.13.5+** installed
-- **Smartphone/Tablet** with a modern browser
-- Both devices on the **same local network**
+- Linux (any modern distro — `/dev/uinput` ships with the mainline kernel)
+- Python **3.13+**
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) — dependency manager: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- A smartphone or tablet with a modern browser on the **same Wi-Fi**
 
-### Installation
+### Install
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ZenonEl/RemoteGamepad.git
-   cd RemoteGamepad
-   ```
-
-2. **Create virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Run the application:**
-   ```bash
-   flet run gui_main.py
-   ```
-
-5. **Connect your device:**
-   - Open your browser on your smartphone
-   - Navigate to the displayed IP address (e.g., `http://192.168.1.100:5002`)
-   - Connect your gamepad to your mobile device
-   - Start gaming! 🎮
-
-## 📱 How It Works
-
-```
-[Gamepad] → [Smartphone Browser] → [WiFi] → [PC Server] → [Virtual Controller] → [Games]
-```
-
-1. **Connect** your physical gamepad to your smartphone
-2. **Open** the web interface in your mobile browser
-3. **Server** creates a virtual Xbox 360 controller on your PC
-4. **Input** from your mobile device is translated to virtual controller events
-5. **Games** recognize the virtual controller as a real gamepad
-
-> **⚠️ Note:** This project is currently in **beta development** stage and will continue to evolve with new features and improvements.
-
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**"Permission denied" error on Linux:**
 ```bash
-sudo usermod -a -G input $USER
-# Log out and back in, or run:
-newgrp input
+# 1. Clone
+git clone https://github.com/ZenonEl/RemoteGamepad.git
+cd RemoteGamepad
+
+# 2. One-time: grant your user permission to create virtual input devices
+sudo bash scripts/setup_udev.sh
+# Re-login once after this — the input group only applies to a new session.
+
+# 3. Install dependencies (uv reads pyproject.toml + uv.lock)
+uv sync
+
+# 4. (Optional) configure a tunnel
+cp .env.example .env
+# Edit .env: EXTERNAL_URL is only needed when exposing the server via zrok/ngrok.
+
+# 5. Run
+uv run main.py
 ```
 
-**Controller not detected:**
-- Ensure both devices are on the same network
-- Check firewall settings
-- Verify the server is running and accessible
+The server prints a QR code in the console pointing at `http://<your-LAN-IP>:5002`. Scan it with your phone — the touch UI opens. If a physical controller is attached to the phone, it Just Works; otherwise the on-screen controls drive the virtual pad.
 
-**High latency:**
-- Reduce `INTERVAL_SEND_TIMING` in settings
-- Check network quality
-- Close unnecessary applications
-
-
-## 📁 Project Structure
+### Layout
 
 ```
 RemoteGamepad/
+├── main.py                       # entry point — QR codes + uvicorn
+├── pyproject.toml                # uv-managed deps
+├── uv.lock
+├── .env.example
+├── scripts/setup_udev.sh         # uinput permissions
 ├── src/
-│   ├── api/           # FastAPI server implementation
-│   ├── core/          # Core gamepad management
-│   ├── gui/           # Flet GUI application
-│   └── utils/         # Utility functions
-├── static/            # Web assets (CSS, JS)
-├── templates/         # HTML templates
-├── config/            # Configuration files
-├── lang/              # Localization files
-├── server.py          # Main Flask server
-└── main.py            # GUI application entry point
+│   ├── config.py                 # PORT, EXTERNAL_URL
+│   ├── api/server.py             # FastAPI: GET /, WS /ws, static mount
+│   └── core/
+│       ├── gamepad_manager.py    # VirtualGamepadDevice + manager
+│       └── mapping_config.py     # JS button names → evdev keycodes
+├── templates/
+│   ├── index.html                # main UI
+│   └── translations.html
+├── static/                       # JS / CSS
+├── lang/{en,ru}.json             # i18n strings
+└── assets/                       # icons, images
 ```
 
-## 🌍 Localization
+## 🔧 Troubleshooting
 
-The application supports multiple languages:
+**`Permission denied` on `/dev/uinput`** — `scripts/setup_udev.sh` wasn't run, or there was no re-login afterwards. The script creates a udev rule granting the `input` group write access to `uinput`, adds your user to `input`, and loads the `uinput` kernel module. Group membership only applies to a fresh session.
 
-- **English** (`lang/en.json`) - [README.md](README.md)
-- **Russian** (`lang/ru.json`) - [README.ru.md](README.ru.md)
+**Phone can't reach `http://<LAN-IP>:5002`** — the port is blocked by the firewall.
+- `firewalld`: `sudo firewall-cmd --add-port=5002/tcp --permanent && sudo firewall-cmd --reload`
+- `ufw`: `sudo ufw allow 5002/tcp`
+- Sanity-check on the PC: `curl -I http://localhost:5002`.
 
-Add new languages by creating JSON files in the `lang/` directory.
+**Buttons fire in the browser but the game maps them wrong** — make sure the game uses SDL2 mappings (most modern engines do). Verify the device shows up as Xbox 360 in the kernel: `cat /proc/bus/input/devices | grep -A4 "X-Box 360"`.
 
+**Want it reachable from outside the LAN?** Run zrok or ngrok pointing at `localhost:5002`, drop the public URL into `.env` as `EXTERNAL_URL`, restart. A second QR is printed for that URL.
 
-## 🙏 Acknowledgments
+## 🧪 Status & limitations
 
-- **evdev** library for Linux input device support
-- **FastAPI** for the web server framework
-- **Flet** for the desktop GUI framework
-- **Web Gamepad API** for mobile gamepad support
+- **Beta.** The wire protocol and mappings may change between commits.
+- **One virtual gamepad per server instance** — the manager is single-slot today (KISS).
+- **Linux only.** Coupled to `/dev/uinput`; Windows / macOS would need a different virtual-driver backend.
+- **No authentication.** Anyone on the same Wi-Fi who knows the URL can drive the pad. Keep it on a trusted network or behind a tunnel that does auth.
+- **No automated tests in this branch yet.**
 
-> **Note:** This project is currently in **beta development** and will continue to improve with new features and enhancements in the future.
+## 📜 License
+
+GPL-3.0 — see [LICENSE](LICENSE).
 
 ## 📞 Contact
 
-- **GitHub**: [@ZenonEl](https://github.com/ZenonEl)
-- **Mastodon**: [@ZenonEl@mastodon.ml](https://mastodon.ml/@ZenonEl)
-- **Project**: [RemoteGamepad](https://github.com/ZenonEl/RemoteGamepad)
-
+- GitHub: **[@ZenonEl](https://github.com/ZenonEl)**
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by ZenonEl**
-
-*Transform your gaming experience with RemoteGamepad!*
-
-[⭐ Star this repo](https://github.com/ZenonEl/RemoteGamepad) | [🐛 Report Bug](https://github.com/ZenonEl/RemoteGamepad/issues) | [💡 Request Feature](https://github.com/ZenonEl/RemoteGamepad/issues)
+[⭐ Star](https://github.com/ZenonEl/RemoteGamepad) · [🐛 Issue](https://github.com/ZenonEl/RemoteGamepad/issues) · [💡 Idea](https://github.com/ZenonEl/RemoteGamepad/issues)
 
 </div>
-
-## 📄 License
-
-This project is licensed under the **GPL 3.0 License** - see the [LICENSE](LICENSE) file for details.
